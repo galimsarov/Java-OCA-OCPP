@@ -5,10 +5,11 @@ import eu.chargetime.ocpp.feature.profile.ClientCoreEventHandler;
 import eu.chargetime.ocpp.feature.profile.ClientCoreProfile;
 import eu.chargetime.ocpp.model.Request;
 import eu.chargetime.ocpp.model.core.*;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
-import pss.mira.orp.JavaOCAOCPP.service.Cache;
+import pss.mira.orp.JavaOCAOCPP.service.cache.Cache;
 
 import static pss.mira.orp.JavaOCAOCPP.enums.Keys.*;
 
@@ -21,6 +22,19 @@ public class OcppLoader implements CommandLineRunner {
         this.cache = cache;
     }
 
+    @Getter
+    private JSONClient client;
+
+    /**
+     * Подключается к центральной системе:
+     * addressCP - адрес ЦС,
+     * chargePointID - id зарядной станции.
+     * Отправляет запрос bootNotification:
+     * vendor - информация о производителе,
+     * model - информация о модели станции.
+     * Формат ответа от steve:
+     * BootNotificationConfirmation{currentTime="2024-01-10T10:09:17.743Z", interval=60, status=Accepted, isValid=true}
+     */
     @Override
     public void run(String... args) throws Exception {
         String addressCP, chargePointID, vendor, model;
@@ -37,8 +51,9 @@ public class OcppLoader implements CommandLineRunner {
         }
 
         ClientCoreProfile core = getCore();
-        JSONClient client = new JSONClient(core, chargePointID);
-        client.connect(addressCP, null);
+        JSONClient jsonClient = new JSONClient(core, chargePointID);
+        jsonClient.connect(addressCP, null);
+        client = jsonClient;
 
         // Use the feature profile to help create event
         Request request = core.createBootNotificationRequest(vendor, model);
