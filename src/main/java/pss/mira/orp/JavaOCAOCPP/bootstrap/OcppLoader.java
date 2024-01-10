@@ -5,19 +5,43 @@ import eu.chargetime.ocpp.feature.profile.ClientCoreEventHandler;
 import eu.chargetime.ocpp.feature.profile.ClientCoreProfile;
 import eu.chargetime.ocpp.model.Request;
 import eu.chargetime.ocpp.model.core.*;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
+import pss.mira.orp.JavaOCAOCPP.service.Cache;
+
+import static pss.mira.orp.JavaOCAOCPP.enums.Keys.*;
 
 @Component
+@Slf4j
 public class OcppLoader implements CommandLineRunner {
+    private final Cache cache;
+
+    public OcppLoader(Cache cache) {
+        this.cache = cache;
+    }
+
     @Override
     public void run(String... args) throws Exception {
+        String addressCP, chargePointID, vendor, model;
+
+        while (true) {
+            addressCP = cache.getFromCacheByKey(ADDRESS_CP.getKey());
+            chargePointID = cache.getFromCacheByKey(CHARGE_POINT_ID.getKey());
+            vendor = cache.getFromCacheByKey(VENDOR.getKey());
+            model = cache.getFromCacheByKey(CHARGE_POINT_MODEL.getKey());
+            if (addressCP != null && chargePointID != null && vendor != null && model != null) {
+                log.info("OCPP is ready to connect with the central system and send the boot notification");
+                break;
+            }
+        }
+
         ClientCoreProfile core = getCore();
-        JSONClient client = new JSONClient(core, "22F555555");
-        client.connect("ws://10.10.0.255:8080/steve/websocket/CentralSystemService", null);
+        JSONClient client = new JSONClient(core, chargePointID);
+        client.connect(addressCP, null);
 
         // Use the feature profile to help create event
-        Request request = core.createBootNotificationRequest("some vendor", "some model");
+        Request request = core.createBootNotificationRequest(vendor, model);
 
         // Client returns a promise which will be filled once it receives a confirmation.
         client.send(request).whenComplete((s, ex) -> System.out.println(s));
