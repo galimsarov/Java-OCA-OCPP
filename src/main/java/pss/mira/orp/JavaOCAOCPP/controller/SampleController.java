@@ -6,7 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
-import pss.mira.orp.JavaOCAOCPP.service.ocpp.auth.Authorize;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.authorize.Authorize;
 
 @RestController
 @Slf4j

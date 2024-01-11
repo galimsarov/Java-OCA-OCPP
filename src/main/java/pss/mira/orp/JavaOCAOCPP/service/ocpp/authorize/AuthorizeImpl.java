@@ -1,4 +1,4 @@
-package pss.mira.orp.JavaOCAOCPP.service.ocpp.auth;
+package pss.mira.orp.JavaOCAOCPP.service.ocpp.authorize;
 
 import eu.chargetime.ocpp.JSONClient;
 import eu.chargetime.ocpp.OccurenceConstraintException;
@@ -7,15 +7,15 @@ import eu.chargetime.ocpp.feature.profile.ClientCoreProfile;
 import eu.chargetime.ocpp.model.Request;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import pss.mira.orp.JavaOCAOCPP.bootstrap.OcppLoader;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
 
 @Service
 @Slf4j
 public class AuthorizeImpl implements Authorize {
-    private final OcppLoader ocppLoader;
+    private final BootNotification bootNotification;
 
-    public AuthorizeImpl(OcppLoader ocppLoader) {
-        this.ocppLoader = ocppLoader;
+    public AuthorizeImpl(BootNotification bootNotification) {
+        this.bootNotification = bootNotification;
     }
 
     /**
@@ -27,8 +27,8 @@ public class AuthorizeImpl implements Authorize {
      */
     @Override
     public void sendAuthorize(String idTag) {
-        ClientCoreProfile core = ocppLoader.getCore();
-        JSONClient client = ocppLoader.getClient();
+        ClientCoreProfile core = bootNotification.getCore();
+        JSONClient client = bootNotification.getClient();
 
         // Use the feature profile to help create event
         Request request = core.createAuthorizeRequest(idTag);
@@ -37,7 +37,7 @@ public class AuthorizeImpl implements Authorize {
         try {
             client.send(request).whenComplete((s, ex) -> System.out.println(s));
         } catch (OccurenceConstraintException | UnsupportedFeatureException ignored) {
-            log.warn("An error occurred while sending or processing auth request");
+            log.warn("An error occurred while sending or processing authorize request");
         }
     }
 }
