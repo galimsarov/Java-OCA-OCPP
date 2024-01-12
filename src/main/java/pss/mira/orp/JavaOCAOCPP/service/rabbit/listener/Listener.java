@@ -1,7 +1,7 @@
 package pss.mira.orp.JavaOCAOCPP.service.rabbit.listener;
 
 public interface Listener {
-    void processAddressCS(String message);
+    void processOCPP(String message);
 
-    void processMyQueue2(String message);
+    void processConnectorsInfo(String message);
 }

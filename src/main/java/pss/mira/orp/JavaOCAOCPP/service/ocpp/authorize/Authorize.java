@@ -1,5 +1,7 @@
 package pss.mira.orp.JavaOCAOCPP.service.ocpp.authorize;
 
+import java.util.List;
+
 public interface Authorize {
-    void sendAuthorize(String idTag);
+    void sendAuthorize(List<Object> parsedMessage);
 }

@@ -6,7 +6,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.EnableRabbit;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
-import pss.mira.orp.JavaOCAOCPP.service.cache.Cache;
+import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
+import pss.mira.orp.JavaOCAOCPP.service.cache.request.RequestCache;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.authorize.Authorize;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
 
 import java.util.List;
@@ -18,30 +20,45 @@ import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.config_zs;
 @Component
 @Slf4j
 public class ListenerImpl implements Listener {
-    private final Cache cache;
+    private final Authorize authorize;
     private final BootNotification bootNotification;
+    private final ConnectorsInfoCache connectorsInfoCache;
+    private final RequestCache requestCache;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public ListenerImpl(Cache cache, BootNotification bootNotification) {
-        this.cache = cache;
+    public ListenerImpl(Authorize authorize, BootNotification bootNotification, ConnectorsInfoCache connectorsInfoCache, RequestCache requestCache) {
+        this.authorize = authorize;
         this.bootNotification = bootNotification;
+        this.connectorsInfoCache = connectorsInfoCache;
+        this.requestCache = requestCache;
     }
 
     @Override
     @RabbitListener(queues = "ocpp")
-    public void processAddressCS(String message) {
+    public void processOCPP(String message) {
+        log.info("Received from ocpp queue: " + message);
         try {
-            ObjectMapper objectMapper = new ObjectMapper();
             List<Object> parsedMessage = objectMapper.readValue(message, List.class);
             if (parsedMessage.size() >= 3) {
-                List<Object> cashedRequest = cache.getCashedRequest(parsedMessage.get(1).toString());
-                if (cashedRequest != null) {
+                if (parsedMessage.size() == 3) {
                     // ответы
-                    if (cashedRequest.get(4).equals(config_zs.name())) {
-                        List<Map<String, Object>> configZSList = (List<Map<String, java.lang.Object>>) parsedMessage.get(2);
-                        bootNotification.sendBootNotification(configZSList);
+                    String uuid = parsedMessage.get(1).toString();
+                    List<Object> cashedRequest = requestCache.getCashedRequest(uuid);
+                    if (cashedRequest != null) {
+                        // запрос в кэше найден
+                        if (cashedRequest.get(4).equals(config_zs.name())) {
+                            Thread waitingConnectorsInfoThread = getWaitingConnectorsInfoThread(parsedMessage);
+                            waitingConnectorsInfoThread.start();
+                        }
+                        requestCache.removeFromCache(uuid);
                     }
                 } else {
                     // запросы
+                    switch (parsedMessage.get(2).toString()) {
+                        case ("Authorize"):
+                            authorize.sendAuthorize(parsedMessage);
+                            break;
+                    }
                 }
             } else {
                 log.error("Error when parsing a message from the broker. The length of the message must be 3 for the " +
@@ -50,19 +67,31 @@ public class ListenerImpl implements Listener {
         } catch (JsonProcessingException e) {
             log.error("Error when parsing a message from the broker");
         }
+    }
 
-//        Map<String, String> map = new Gson().fromJson(message, Map.class);
-//        log.info("Received from queue {}: {}", "configZS", map);
-//        for (Map.Entry<String, String> entry : map.entrySet()) {
-//            cache.addToCache(entry.getKey(), entry.getValue());
-//        }
+    private Thread getWaitingConnectorsInfoThread(List<Object> parsedMessage) {
+        Runnable task = () -> {
+            while (connectorsInfoCache.isEmpty()) {
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    log.error("Error while waiting for the connectors info");
+                }
+            }
+            bootNotification.sendBootNotification(parsedMessage);
+        };
+        return new Thread(task);
     }
 
     @Override
-    @RabbitListener(queues = "myQueue2")
-    public void processMyQueue2(String message) {
-        log.info("Received from queue2 : {}", message);
+    @RabbitListener(queues = "connectorsInfo")
+    public void processConnectorsInfo(String message) {
+        log.info("Received from connectorsInfo queue: " + message);
+        try {
+            List<Map<String, Object>> parsedMessage = objectMapper.readValue(message, List.class);
+            connectorsInfoCache.addToCache(parsedMessage);
+        } catch (JsonProcessingException e) {
+            log.error("Error when parsing a message from the broker");
+        }
     }
-
-
 }

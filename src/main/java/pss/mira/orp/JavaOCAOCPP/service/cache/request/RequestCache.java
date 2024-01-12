@@ -1,11 +1,11 @@
-package pss.mira.orp.JavaOCAOCPP.service.cache;
+package pss.mira.orp.JavaOCAOCPP.service.cache.request;
 
 import java.util.List;
 
-public interface Cache {
+public interface RequestCache {
     void addToCache(List<Object> request, String requestType);
 
     List<Object> getCashedRequest(String uuid);
 
-    Object removeFromCacheByUid(String uuid);
+    void removeFromCache(String uuid);
 }

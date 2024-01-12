@@ -4,10 +4,9 @@ import eu.chargetime.ocpp.JSONClient;
 import eu.chargetime.ocpp.feature.profile.ClientCoreProfile;
 
 import java.util.List;
-import java.util.Map;
 
 public interface BootNotification {
-    void sendBootNotification(List<Map<String, Object>> configZSList);
+    void sendBootNotification(List<Object> parsedMessage);
 
     JSONClient getClient();
 

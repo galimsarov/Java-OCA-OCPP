@@ -31,7 +31,7 @@ public class StatusNotificationImpl implements StatusNotification {
 
         // Client returns a promise which will be filled once it receives a confirmation.
         try {
-            client.send(request).whenComplete((s, ex) -> System.out.println(s));
+            client.send(request).whenComplete((s, ex) -> log.info(s.toString()));
         } catch (OccurenceConstraintException | UnsupportedFeatureException ignored) {
             log.warn("An error occurred while sending or processing status notification request");
         }

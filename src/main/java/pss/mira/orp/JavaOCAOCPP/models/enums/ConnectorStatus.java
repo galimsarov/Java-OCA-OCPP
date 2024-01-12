@@ -1,5 +1,5 @@
 package pss.mira.orp.JavaOCAOCPP.models.enums;
 
-public enum Actions {
-    Get
+public enum ConnectorStatus {
+    Charging
 }
