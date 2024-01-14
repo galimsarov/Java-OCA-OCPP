@@ -62,10 +62,12 @@ public class AuthorizeImpl implements Authorize {
 
     private void handleResponse(String consumer, String requestUuid, Confirmation confirmation) {
         IdTagInfo idTagInfo = ((AuthorizeConfirmation) confirmation).getIdTagInfo();
-        Map<String, String> result = new HashMap<>();
-        result.put("expiryDate", idTagInfo.getExpiryDate().toString());
-        result.put("parentIdTag", idTagInfo.getParentIdTag());
-        result.put("status", idTagInfo.getStatus().toString());
+        Map<String, Map<String, String>> result = new HashMap<>();
+        Map<String, String> idTagInfoMap = new HashMap<>();
+        idTagInfoMap.put("expiryDate", idTagInfo.getExpiryDate().toString());
+        idTagInfoMap.put("parentIdTag", idTagInfo.getParentIdTag());
+        idTagInfoMap.put("status", idTagInfo.getStatus().toString());
+        result.put("idTagInfo", idTagInfoMap);
         sender.sendRequestToQueue(consumer, requestUuid, "", result);
     }
 }

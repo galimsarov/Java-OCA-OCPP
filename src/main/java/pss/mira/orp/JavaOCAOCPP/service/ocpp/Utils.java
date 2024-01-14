@@ -18,21 +18,18 @@ public class Utils {
         this.timeSetter = timeSetter;
     }
 
-    public Thread getEndOfChargingThread(ZonedDateTime currentTime) {
-        Runnable task = () -> {
-            while (true) {
-                if (connectorsInfoCache.stationIsCharging()) {
-                    try {
-                        Thread.sleep(1000);
-                    } catch (InterruptedException e) {
-                        log.error("An error while waiting for the end of charging");
-                    }
-                } else {
-                    break;
+    public void setTime(ZonedDateTime currentTime) {
+        while (true) {
+            if (connectorsInfoCache.stationIsCharging()) {
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    log.error("An error while waiting for the end of charging");
                 }
+            } else {
+                break;
             }
-            timeSetter.setTime(currentTime);
-        };
-        return new Thread(task);
+        }
+        timeSetter.setTime(currentTime);
     }
 }

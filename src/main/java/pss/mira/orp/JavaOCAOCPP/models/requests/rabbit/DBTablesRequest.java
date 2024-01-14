@@ -1,4 +1,4 @@
-package pss.mira.orp.JavaOCAOCPP.models.requests;
+package pss.mira.orp.JavaOCAOCPP.models.requests.rabbit;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

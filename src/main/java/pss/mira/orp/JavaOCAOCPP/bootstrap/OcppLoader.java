@@ -2,7 +2,7 @@ package pss.mira.orp.JavaOCAOCPP.bootstrap;
 
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
-import pss.mira.orp.JavaOCAOCPP.models.requests.DBTablesRequest;
+import pss.mira.orp.JavaOCAOCPP.models.requests.rabbit.DBTablesRequest;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 
 import java.util.List;

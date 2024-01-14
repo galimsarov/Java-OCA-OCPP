@@ -6,10 +6,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.EnableRabbit;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
+import pss.mira.orp.JavaOCAOCPP.models.requests.ocpp.StatusNotificationRequest;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
 import pss.mira.orp.JavaOCAOCPP.service.cache.request.RequestCache;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.authorize.Authorize;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.statusNotification.StatusNotification;
 
 import java.util.List;
 import java.util.Map;
@@ -24,13 +26,21 @@ public class ListenerImpl implements Listener {
     private final BootNotification bootNotification;
     private final ConnectorsInfoCache connectorsInfoCache;
     private final RequestCache requestCache;
+    private final StatusNotification statusNotification;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public ListenerImpl(Authorize authorize, BootNotification bootNotification, ConnectorsInfoCache connectorsInfoCache, RequestCache requestCache) {
+    public ListenerImpl(
+            Authorize authorize,
+            BootNotification bootNotification,
+            ConnectorsInfoCache connectorsInfoCache,
+            RequestCache requestCache,
+            StatusNotification statusNotification
+    ) {
         this.authorize = authorize;
         this.bootNotification = bootNotification;
         this.connectorsInfoCache = connectorsInfoCache;
         this.requestCache = requestCache;
+        this.statusNotification = statusNotification;
     }
 
     @Override
@@ -47,8 +57,7 @@ public class ListenerImpl implements Listener {
                     if (cashedRequest != null) {
                         // запрос в кэше найден
                         if (cashedRequest.get(4).equals(config_zs.name())) {
-                            Thread waitingConnectorsInfoThread = getWaitingConnectorsInfoThread(parsedMessage);
-                            waitingConnectorsInfoThread.start();
+                            sendBootNotification(parsedMessage);
                         }
                         requestCache.removeFromCache(uuid);
                     }
@@ -69,8 +78,7 @@ public class ListenerImpl implements Listener {
         }
     }
 
-    private Thread getWaitingConnectorsInfoThread(List<Object> parsedMessage) {
-        Runnable task = () -> {
+    private void sendBootNotification(List<Object> parsedMessage) {
             while (connectorsInfoCache.isEmpty()) {
                 try {
                     Thread.sleep(1000);
@@ -79,8 +87,6 @@ public class ListenerImpl implements Listener {
                 }
             }
             bootNotification.sendBootNotification(parsedMessage);
-        };
-        return new Thread(task);
     }
 
     @Override
@@ -89,7 +95,11 @@ public class ListenerImpl implements Listener {
         log.info("Received from connectorsInfo queue: " + message);
         try {
             List<Map<String, Object>> parsedMessage = objectMapper.readValue(message, List.class);
-            connectorsInfoCache.addToCache(parsedMessage);
+            List<StatusNotificationRequest> possibleRequests = connectorsInfoCache.addToCache(parsedMessage);
+            for (StatusNotificationRequest request : possibleRequests) {
+                statusNotification.sendStatusNotification(request);
+            }
+
         } catch (JsonProcessingException e) {
             log.error("Error when parsing a message from the broker");
         }

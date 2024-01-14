@@ -11,6 +11,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.Utils;
 
+import java.util.Set;
+
 @Service
 @Slf4j
 public class HeartbeatImpl implements Heartbeat {
@@ -38,7 +40,9 @@ public class HeartbeatImpl implements Heartbeat {
 
     private void handleResponse(Confirmation confirmation) {
         HeartbeatConfirmation heartbeatConfirmation = (HeartbeatConfirmation) confirmation;
-        Thread endOfChargingThread = utils.getEndOfChargingThread(heartbeatConfirmation.getCurrentTime());
-        endOfChargingThread.start();
+        utils.setTime(heartbeatConfirmation.getCurrentTime());
+
+        Set<Thread> threads = Thread.getAllStackTraces().keySet();
+        log.info("Запущено потоков " + threads.size());
     }
 }
