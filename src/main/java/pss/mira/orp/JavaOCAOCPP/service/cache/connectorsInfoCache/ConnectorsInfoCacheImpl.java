@@ -4,6 +4,7 @@ import eu.chargetime.ocpp.model.core.ChargePointErrorCode;
 import eu.chargetime.ocpp.model.core.ChargePointStatus;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import pss.mira.orp.JavaOCAOCPP.models.enums.IdType;
 import pss.mira.orp.JavaOCAOCPP.models.requests.ocpp.StatusNotificationRequest;
 
 import java.util.ArrayList;
@@ -12,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 
 import static pss.mira.orp.JavaOCAOCPP.models.enums.ConnectorStatus.Charging;
+import static pss.mira.orp.JavaOCAOCPP.models.enums.IdType.TRANSACTION;
 
 @Service
 @Slf4j
@@ -20,7 +22,7 @@ public class ConnectorsInfoCacheImpl implements ConnectorsInfoCache {
 
     /**
      * Тестовый сын Джейсона для steve:
-     * [{"id":1,"errorCode":"NoError","status":"Available","meterValue":100},{"id":2,"errorCode":"NoError","status":"Available","meterValue":100},{"id":3,"errorCode":"NoError","status":"Available","meterValue":100}]
+     * [{"id":1,"errorCode":"NoError","status":"Available","meterValue":100,"transactionId":null},{"id":2,"errorCode":"NoError","status":"Available","meterValue":100,"transactionId":null},{"id":3,"errorCode":"NoError","status":"Available","meterValue":100,"transactionId":null}]
      */
     @Override
     public List<StatusNotificationRequest> addToCache(List<Map<String, Object>> connectorsInfo) {
@@ -114,7 +116,15 @@ public class ConnectorsInfoCacheImpl implements ConnectorsInfoCache {
      * Исходим из того, что значение счётчика будет: "meterValue":100
      */
     @Override
-    public int getMeterValue(int connectorId) {
-        return Integer.parseInt(connectorsMap.get(connectorId).get("meterValue").toString());
+    public int getMeterValue(int id, IdType idType) {
+        if (idType.equals(TRANSACTION)) {
+            for (Map.Entry<Integer, Map<String, Object>> entry : connectorsMap.entrySet()) {
+                Integer transactionId = (Integer) entry.getValue().get("transactionId");
+                if (transactionId != null && transactionId.equals(id)) {
+                    return Integer.parseInt(entry.getValue().get("meterValue").toString());
+                }
+            }
+        }
+        return Integer.parseInt(connectorsMap.get(id).get("meterValue").toString());
     }
 }

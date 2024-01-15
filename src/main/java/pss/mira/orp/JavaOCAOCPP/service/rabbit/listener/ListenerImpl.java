@@ -15,6 +15,7 @@ import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.Handler;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.startTransaction.StartTransaction;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.statusNotification.StatusNotification;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.stopTransaction.StopTransaction;
 
 import java.util.List;
 import java.util.Map;
@@ -33,6 +34,7 @@ public class ListenerImpl implements Listener {
     private final RequestCache requestCache;
     private final StartTransaction startTransaction;
     private final StatusNotification statusNotification;
+    private final StopTransaction stopTransaction;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public ListenerImpl(
@@ -42,7 +44,8 @@ public class ListenerImpl implements Listener {
             Handler handler,
             RequestCache requestCache,
             StartTransaction startTransaction,
-            StatusNotification statusNotification
+            StatusNotification statusNotification,
+            StopTransaction stopTransaction
     ) {
         this.authorize = authorize;
         this.bootNotification = bootNotification;
@@ -51,6 +54,7 @@ public class ListenerImpl implements Listener {
         this.requestCache = requestCache;
         this.startTransaction = startTransaction;
         this.statusNotification = statusNotification;
+        this.stopTransaction = stopTransaction;
     }
 
     @Override
@@ -70,7 +74,9 @@ public class ListenerImpl implements Listener {
                             sendBootNotification(parsedMessage);
                         } else if (cashedRequest.get(4).equals(ChangeAvailability.name())) {
                             // чтобы не было циклических зависимостей отправку StatusNotification делаем здесь
-                            int connectorId = requestCache.getConnectorId(parsedMessage.get(1).toString(), ChangeAvailability.name());
+                            int connectorId = requestCache.getConnectorId(
+                                    parsedMessage.get(1).toString(), ChangeAvailability.name()
+                            );
                             if (connectorId != -1) {
                                 StatusNotificationRequest statusNotificationRequest =
                                         connectorsInfoCache.getStatusNotificationRequest(connectorId);
@@ -88,6 +94,8 @@ public class ListenerImpl implements Listener {
                         authorize.sendAuthorize(parsedMessage);
                     } else if (parsedMessage.get(2).toString().equals(Actions.StartTransaction.name())) {
                         startTransaction.sendStartTransaction(parsedMessage);
+                    } else if (parsedMessage.get(2).toString().equals(Actions.StopTransaction.name())) {
+                        stopTransaction.sendStopTransaction(parsedMessage);
                     }
                 }
             } else {

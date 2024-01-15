@@ -1,5 +1,6 @@
 package pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache;
 
+import pss.mira.orp.JavaOCAOCPP.models.enums.IdType;
 import pss.mira.orp.JavaOCAOCPP.models.requests.ocpp.StatusNotificationRequest;
 
 import java.util.List;
@@ -14,5 +15,5 @@ public interface ConnectorsInfoCache {
 
     StatusNotificationRequest getStatusNotificationRequest(int connectorId);
 
-    int getMeterValue(int connectorId);
+    int getMeterValue(int id, IdType idType);
 }

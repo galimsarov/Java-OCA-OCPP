@@ -4,5 +4,6 @@ public enum Actions {
     Authorize, // входящий
     ChangeAvailability, // ModBus
     Get, // bd
-    StartTransaction // входящий
+    StartTransaction, // входящий
+    StopTransaction // входящий
 }
