@@ -8,4 +8,6 @@ public interface RequestCache {
     List<Object> getCashedRequest(String uuid);
 
     void removeFromCache(String uuid);
+
+    int getConnectorId(String uid, String requestType);
 }

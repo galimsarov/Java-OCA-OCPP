@@ -2,6 +2,7 @@ package pss.mira.orp.JavaOCAOCPP.service.pc;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
 
 import java.io.IOException;
 import java.time.ZonedDateTime;
@@ -11,8 +12,29 @@ import static org.apache.commons.lang3.SystemUtils.IS_OS_WINDOWS;
 @Service
 @Slf4j
 public class TimeSetterImpl implements TimeSetter {
+    private final ConnectorsInfoCache connectorsInfoCache;
+
+    public TimeSetterImpl(ConnectorsInfoCache connectorsInfoCache) {
+        this.connectorsInfoCache = connectorsInfoCache;
+    }
+
     @Override
     public void setTime(ZonedDateTime time) {
+        while (true) {
+            if (connectorsInfoCache.stationIsCharging()) {
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    log.error("An error while waiting for the end of charging");
+                }
+            } else {
+                break;
+            }
+        }
+        setSystemTime(time);
+    }
+
+    private void setSystemTime(ZonedDateTime time) {
         String TimeHearbeat = time.toString();
         int index1 = TimeHearbeat.indexOf('+');
 

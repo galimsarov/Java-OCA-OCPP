@@ -5,16 +5,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import eu.chargetime.ocpp.JSONClient;
 import eu.chargetime.ocpp.OccurenceConstraintException;
 import eu.chargetime.ocpp.UnsupportedFeatureException;
-import eu.chargetime.ocpp.feature.profile.ClientCoreEventHandler;
 import eu.chargetime.ocpp.feature.profile.ClientCoreProfile;
 import eu.chargetime.ocpp.model.Confirmation;
 import eu.chargetime.ocpp.model.Request;
-import eu.chargetime.ocpp.model.core.*;
+import eu.chargetime.ocpp.model.core.BootNotificationConfirmation;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import pss.mira.orp.JavaOCAOCPP.service.ocpp.Utils;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.Handler;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.heartBeat.Heartbeat;
+import pss.mira.orp.JavaOCAOCPP.service.pc.TimeSetter;
 
 import java.util.List;
 import java.util.Map;
@@ -24,16 +24,18 @@ import static eu.chargetime.ocpp.model.core.RegistrationStatus.Accepted;
 @Service
 @Slf4j
 public class BootNotificationImpl implements BootNotification {
+    private final Handler handler;
     private final Heartbeat heartbeat;
-    private final Utils utils;
+    private final TimeSetter timeSetter;
 
     private JSONClient client;
     @Value("${vendor.name}")
     private String vendorName;
 
-    public BootNotificationImpl(Heartbeat heartbeat, Utils utils) {
+    public BootNotificationImpl(Handler handler, Heartbeat heartbeat, TimeSetter timeSetter) {
+        this.handler = handler;
         this.heartbeat = heartbeat;
-        this.utils = utils;
+        this.timeSetter = timeSetter;
     }
 
     /**
@@ -81,7 +83,7 @@ public class BootNotificationImpl implements BootNotification {
                         addressCP = addressCP.substring(0, addressCP.length() - 1);
                     }
 
-                    ClientCoreProfile core = getCore();
+                    ClientCoreProfile core = handler.getCore();
                     JSONClient jsonClient = new JSONClient(core, chargePointID);
                     jsonClient.connect(addressCP, null);
                     client = jsonClient;
@@ -92,7 +94,7 @@ public class BootNotificationImpl implements BootNotification {
                     // Client returns a promise which will be filled once it receives a confirmation.
                     try {
                         client.send(request).whenComplete((confirmation, ex) -> {
-                            log.info(confirmation.toString());
+                            log.info("Received from the central system: " + confirmation.toString());
                             handleResponse(confirmation);
                         });
                     } catch (OccurenceConstraintException | UnsupportedFeatureException e) {
@@ -111,7 +113,7 @@ public class BootNotificationImpl implements BootNotification {
     private void handleResponse(Confirmation confirmation) {
         BootNotificationConfirmation bootNotificationConfirmation = (BootNotificationConfirmation) confirmation;
         if (bootNotificationConfirmation.getStatus().equals(Accepted)) {
-            utils.setTime(bootNotificationConfirmation.getCurrentTime());
+            timeSetter.setTime(bootNotificationConfirmation.getCurrentTime());
 
             Thread heartBeatThread = getHeartbeatThread(bootNotificationConfirmation);
             heartBeatThread.start();
@@ -126,7 +128,7 @@ public class BootNotificationImpl implements BootNotification {
                 } catch (InterruptedException e) {
                     log.error("Аn error while waiting for a heartbeat to be sent");
                 }
-                heartbeat.sendHeartbeat(getCore(), getClient());
+                heartbeat.sendHeartbeat(handler.getCore(), getClient());
             }
         };
         return new Thread(runHeartbeat);
@@ -135,91 +137,5 @@ public class BootNotificationImpl implements BootNotification {
     @Override
     public JSONClient getClient() {
         return client;
-    }
-
-    @Override
-    public ClientCoreProfile getCore() {
-        return new ClientCoreProfile(new ClientCoreEventHandler() {
-            @Override
-            public ChangeAvailabilityConfirmation handleChangeAvailabilityRequest(ChangeAvailabilityRequest request) {
-
-                log.info(request.toString());
-                // ... handle event
-
-                return new ChangeAvailabilityConfirmation(AvailabilityStatus.Accepted);
-            }
-
-            @Override
-            public GetConfigurationConfirmation handleGetConfigurationRequest(GetConfigurationRequest request) {
-
-                log.info(request.toString());
-                // ... handle event
-
-                return null; // returning null means unsupported feature
-            }
-
-            @Override
-            public ChangeConfigurationConfirmation handleChangeConfigurationRequest(ChangeConfigurationRequest request) {
-
-                log.info(request.toString());
-                // ... handle event
-
-                return null; // returning null means unsupported feature
-            }
-
-            @Override
-            public ClearCacheConfirmation handleClearCacheRequest(ClearCacheRequest request) {
-
-                log.info(request.toString());
-                // ... handle event
-
-                return null; // returning null means unsupported feature
-            }
-
-            @Override
-            public DataTransferConfirmation handleDataTransferRequest(DataTransferRequest request) {
-
-                log.info(request.toString());
-                // ... handle event
-
-                return null; // returning null means unsupported feature
-            }
-
-            @Override
-            public RemoteStartTransactionConfirmation handleRemoteStartTransactionRequest(RemoteStartTransactionRequest request) {
-
-                log.info(request.toString());
-                // ... handle event
-
-                return null; // returning null means unsupported feature
-            }
-
-            @Override
-            public RemoteStopTransactionConfirmation handleRemoteStopTransactionRequest(RemoteStopTransactionRequest request) {
-
-                log.info(request.toString());
-                // ... handle event
-
-                return null; // returning null means unsupported feature
-            }
-
-            @Override
-            public ResetConfirmation handleResetRequest(ResetRequest request) {
-
-                log.info(request.toString());
-                // ... handle event
-
-                return null; // returning null means unsupported feature
-            }
-
-            @Override
-            public UnlockConnectorConfirmation handleUnlockConnectorRequest(UnlockConnectorRequest request) {
-
-                log.info(request.toString());
-                // ... handle event
-
-                return null; // returning null means unsupported feature
-            }
-        });
     }
 }

@@ -10,7 +10,6 @@ import pss.mira.orp.JavaOCAOCPP.service.cache.request.RequestCache;
 
 import java.util.List;
 
-import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.config_zs;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Services.ocpp;
 
 @Service
@@ -27,17 +26,17 @@ public class SenderImpl implements Sender {
     }
 
     @Override
-    public void sendRequestToQueue(String key, String uuid, String action, Object body) {
+    public void sendRequestToQueue(String key, String uuid, String action, Object body, String requestType) {
         List<Object> request;
         if (action.isEmpty()) {
             request = List.of(ocpp.name(), uuid, body);
         } else {
             request = List.of(ocpp.name(), uuid, action, body);
+            requestCache.addToCache(request, requestType);
         }
         try {
             String message = (new ObjectMapper()).writeValueAsString(request);
             log.info("Send message in Queue witch listen " + key);
-            requestCache.addToCache(request, config_zs.name());
             log.info("Sending message: " + message);
             template.setExchange(exchange);
             template.convertAndSend(key, message);

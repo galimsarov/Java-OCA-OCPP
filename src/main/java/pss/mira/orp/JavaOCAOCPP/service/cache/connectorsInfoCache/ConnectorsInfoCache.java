@@ -11,4 +11,6 @@ public interface ConnectorsInfoCache {
     boolean stationIsCharging();
 
     boolean isEmpty();
+
+    StatusNotificationRequest getStatusNotificationRequest(int connectorId);
 }

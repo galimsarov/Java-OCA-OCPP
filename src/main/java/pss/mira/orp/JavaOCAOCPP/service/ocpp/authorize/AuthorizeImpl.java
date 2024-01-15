@@ -11,6 +11,7 @@ import eu.chargetime.ocpp.model.core.IdTagInfo;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.Handler;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 
 import java.util.HashMap;
@@ -21,10 +22,12 @@ import java.util.Map;
 @Slf4j
 public class AuthorizeImpl implements Authorize {
     private final BootNotification bootNotification;
+    private final Handler handler;
     private final Sender sender;
 
-    public AuthorizeImpl(BootNotification bootNotification, Sender sender) {
+    public AuthorizeImpl(BootNotification bootNotification, Handler handler, Sender sender) {
         this.bootNotification = bootNotification;
+        this.handler = handler;
         this.sender = sender;
     }
 
@@ -43,7 +46,7 @@ public class AuthorizeImpl implements Authorize {
         Map<String, String> idTagMap = (Map<String, String>) parsedMessage.get(3);
         String idTag = idTagMap.get("idTag");
 
-        ClientCoreProfile core = bootNotification.getCore();
+        ClientCoreProfile core = handler.getCore();
         JSONClient client = bootNotification.getClient();
 
         // Use the feature profile to help create event
@@ -52,7 +55,7 @@ public class AuthorizeImpl implements Authorize {
         // Client returns a promise which will be filled once it receives a confirmation.
         try {
             client.send(request).whenComplete((confirmation, ex) -> {
-                log.info(confirmation.toString());
+                log.info("Received from the central system: " + confirmation.toString());
                 handleResponse(consumer, requestUuid, confirmation);
             });
         } catch (OccurenceConstraintException | UnsupportedFeatureException ignored) {
@@ -68,6 +71,6 @@ public class AuthorizeImpl implements Authorize {
         idTagInfoMap.put("parentIdTag", idTagInfo.getParentIdTag());
         idTagInfoMap.put("status", idTagInfo.getStatus().toString());
         result.put("idTagInfo", idTagInfoMap);
-        sender.sendRequestToQueue(consumer, requestUuid, "", result);
+        sender.sendRequestToQueue(consumer, requestUuid, "", result, "");
     }
 }

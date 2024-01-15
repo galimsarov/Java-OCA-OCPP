@@ -9,17 +9,17 @@ import eu.chargetime.ocpp.model.Request;
 import eu.chargetime.ocpp.model.core.HeartbeatConfirmation;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import pss.mira.orp.JavaOCAOCPP.service.ocpp.Utils;
+import pss.mira.orp.JavaOCAOCPP.service.pc.TimeSetter;
 
 import java.util.Set;
 
 @Service
 @Slf4j
 public class HeartbeatImpl implements Heartbeat {
-    private final Utils utils;
+    private final TimeSetter timeSetter;
 
-    public HeartbeatImpl(Utils utils) {
-        this.utils = utils;
+    public HeartbeatImpl(TimeSetter timeSetter) {
+        this.timeSetter = timeSetter;
     }
 
     @Override
@@ -30,7 +30,7 @@ public class HeartbeatImpl implements Heartbeat {
         // Client returns a promise which will be filled once it receives a confirmation.
         try {
             client.send(request).whenComplete((confirmation, ex) -> {
-                log.info(confirmation.toString());
+                log.info("Received from the central system: " + confirmation.toString());
                 handleResponse(confirmation);
             });
         } catch (OccurenceConstraintException | UnsupportedFeatureException ignored) {
@@ -40,7 +40,7 @@ public class HeartbeatImpl implements Heartbeat {
 
     private void handleResponse(Confirmation confirmation) {
         HeartbeatConfirmation heartbeatConfirmation = (HeartbeatConfirmation) confirmation;
-        utils.setTime(heartbeatConfirmation.getCurrentTime());
+        timeSetter.setTime(heartbeatConfirmation.getCurrentTime());
 
         Set<Thread> threads = Thread.getAllStackTraces().keySet();
         log.info("Запущено потоков " + threads.size());

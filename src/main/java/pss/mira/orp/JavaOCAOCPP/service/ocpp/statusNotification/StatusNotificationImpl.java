@@ -4,20 +4,22 @@ import eu.chargetime.ocpp.JSONClient;
 import eu.chargetime.ocpp.OccurenceConstraintException;
 import eu.chargetime.ocpp.UnsupportedFeatureException;
 import eu.chargetime.ocpp.feature.profile.ClientCoreProfile;
-import eu.chargetime.ocpp.model.Confirmation;
 import eu.chargetime.ocpp.model.Request;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import pss.mira.orp.JavaOCAOCPP.models.requests.ocpp.StatusNotificationRequest;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.Handler;
 
 @Service
 @Slf4j
 public class StatusNotificationImpl implements StatusNotification {
     private final BootNotification bootNotification;
+    private final Handler handler;
 
-    public StatusNotificationImpl(BootNotification bootNotification) {
+    public StatusNotificationImpl(BootNotification bootNotification, Handler handler) {
         this.bootNotification = bootNotification;
+        this.handler = handler;
     }
 
     @Override
@@ -26,7 +28,7 @@ public class StatusNotificationImpl implements StatusNotification {
         JSONClient client;
 
         while (true) {
-            core = bootNotification.getCore();
+            core = handler.getCore();
             client = bootNotification.getClient();
             if (core != null && client != null) {
                 break;
@@ -49,15 +51,10 @@ public class StatusNotificationImpl implements StatusNotification {
         // Client returns a promise which will be filled once it receives a confirmation.
         try {
             client.send(request).whenComplete((confirmation, ex) -> {
-                log.info(confirmation.toString());
-                handleRespond(confirmation);
+                log.info("Received from the central system: " + confirmation.toString());
             });
         } catch (OccurenceConstraintException | UnsupportedFeatureException ignored) {
             log.warn("An error occurred while sending or processing status notification request");
         }
-    }
-
-    private void handleRespond(Confirmation confirmation) {
-
     }
 }

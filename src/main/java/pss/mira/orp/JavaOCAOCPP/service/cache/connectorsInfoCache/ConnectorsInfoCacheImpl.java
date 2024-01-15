@@ -99,4 +99,14 @@ public class ConnectorsInfoCacheImpl implements ConnectorsInfoCache {
     public boolean isEmpty() {
         return connectorsMap.isEmpty();
     }
+
+    @Override
+    public StatusNotificationRequest getStatusNotificationRequest(int connectorId) {
+        Map<String, Object> connectorMap = connectorsMap.get(connectorId);
+        return new StatusNotificationRequest(
+                connectorId,
+                getErrorCode(connectorMap.get("errorCode").toString()),
+                getChargePointStatus(connectorMap.get("status").toString())
+        );
+    }
 }

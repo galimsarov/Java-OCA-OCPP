@@ -1,7 +1,6 @@
 package pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification;
 
 import eu.chargetime.ocpp.JSONClient;
-import eu.chargetime.ocpp.feature.profile.ClientCoreProfile;
 
 import java.util.List;
 
@@ -10,5 +9,5 @@ public interface BootNotification {
 
     JSONClient getClient();
 
-    ClientCoreProfile getCore();
+
 }

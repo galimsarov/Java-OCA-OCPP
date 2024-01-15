@@ -1,5 +1,6 @@
 package pss.mira.orp.JavaOCAOCPP.service.cache.request;
 
+import eu.chargetime.ocpp.model.core.ChangeAvailabilityRequest;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -26,5 +27,18 @@ public class RequestCacheImpl implements RequestCache {
     @Override
     public void removeFromCache(String uuid) {
         cache.remove(uuid);
+    }
+
+    @Override
+    public int getConnectorId(String uid, String requestType) {
+        for (Object possibleRequest : cache.get(uid)) {
+            try {
+                ChangeAvailabilityRequest request = (ChangeAvailabilityRequest) possibleRequest;
+                return request.getConnectorId();
+            } catch (ClassCastException ignored) {
+
+            }
+        }
+        return -1;
     }
 }
