@@ -1,7 +1,8 @@
 package pss.mira.orp.JavaOCAOCPP.models.enums;
 
 public enum Actions {
-    Authorize, // Входящий
+    Authorize, // входящий
     ChangeAvailability, // ModBus
-    Get // bd
+    Get, // bd
+    StartTransaction // входящий
 }

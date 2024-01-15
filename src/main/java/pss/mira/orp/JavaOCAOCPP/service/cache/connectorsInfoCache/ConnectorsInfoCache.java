@@ -13,4 +13,6 @@ public interface ConnectorsInfoCache {
     boolean isEmpty();
 
     StatusNotificationRequest getStatusNotificationRequest(int connectorId);
+
+    int getMeterValue(int connectorId);
 }

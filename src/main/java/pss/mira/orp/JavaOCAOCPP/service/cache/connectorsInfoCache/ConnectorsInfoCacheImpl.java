@@ -20,7 +20,7 @@ public class ConnectorsInfoCacheImpl implements ConnectorsInfoCache {
 
     /**
      * Тестовый сын Джейсона для steve:
-     * [{"id":1,"errorCode":"NoError","status":"Available"},{"id":2,"errorCode":"NoError","status":"Available"},{"id":3,"errorCode":"NoError","status":"Available"}]
+     * [{"id":1,"errorCode":"NoError","status":"Available","meterValue":100},{"id":2,"errorCode":"NoError","status":"Available","meterValue":100},{"id":3,"errorCode":"NoError","status":"Available","meterValue":100}]
      */
     @Override
     public List<StatusNotificationRequest> addToCache(List<Map<String, Object>> connectorsInfo) {
@@ -108,5 +108,13 @@ public class ConnectorsInfoCacheImpl implements ConnectorsInfoCache {
                 getErrorCode(connectorMap.get("errorCode").toString()),
                 getChargePointStatus(connectorMap.get("status").toString())
         );
+    }
+
+    /**
+     * Исходим из того, что значение счётчика будет: "meterValue":100
+     */
+    @Override
+    public int getMeterValue(int connectorId) {
+        return Integer.parseInt(connectorsMap.get(connectorId).get("meterValue").toString());
     }
 }

@@ -13,6 +13,7 @@ import pss.mira.orp.JavaOCAOCPP.service.cache.request.RequestCache;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.authorize.Authorize;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.Handler;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.startTransaction.StartTransaction;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.statusNotification.StatusNotification;
 
 import java.util.List;
@@ -30,6 +31,7 @@ public class ListenerImpl implements Listener {
     private final ConnectorsInfoCache connectorsInfoCache;
     private final Handler handler;
     private final RequestCache requestCache;
+    private final StartTransaction startTransaction;
     private final StatusNotification statusNotification;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -39,6 +41,7 @@ public class ListenerImpl implements Listener {
             ConnectorsInfoCache connectorsInfoCache,
             Handler handler,
             RequestCache requestCache,
+            StartTransaction startTransaction,
             StatusNotification statusNotification
     ) {
         this.authorize = authorize;
@@ -46,6 +49,7 @@ public class ListenerImpl implements Listener {
         this.connectorsInfoCache = connectorsInfoCache;
         this.handler = handler;
         this.requestCache = requestCache;
+        this.startTransaction = startTransaction;
         this.statusNotification = statusNotification;
     }
 
@@ -82,6 +86,8 @@ public class ListenerImpl implements Listener {
                     // запросы
                     if (parsedMessage.get(2).toString().equals(Actions.Authorize.name())) {
                         authorize.sendAuthorize(parsedMessage);
+                    } else if (parsedMessage.get(2).toString().equals(Actions.StartTransaction.name())) {
+                        startTransaction.sendStartTransaction(parsedMessage);
                     }
                 }
             } else {
