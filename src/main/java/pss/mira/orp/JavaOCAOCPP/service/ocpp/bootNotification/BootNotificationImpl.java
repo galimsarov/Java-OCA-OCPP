@@ -1,7 +1,5 @@
 package pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import eu.chargetime.ocpp.JSONClient;
 import eu.chargetime.ocpp.OccurenceConstraintException;
 import eu.chargetime.ocpp.UnsupportedFeatureException;
@@ -12,12 +10,12 @@ import eu.chargetime.ocpp.model.core.BootNotificationConfirmation;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import pss.mira.orp.JavaOCAOCPP.models.requests.ocpp.BootNotificationRequest;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.Handler;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.heartBeat.Heartbeat;
 import pss.mira.orp.JavaOCAOCPP.service.pc.TimeSetter;
 
 import java.util.List;
-import java.util.Map;
 
 import static eu.chargetime.ocpp.model.core.RegistrationStatus.Accepted;
 
@@ -48,65 +46,43 @@ public class BootNotificationImpl implements BootNotification {
      * Формат ответа от steve:
      * BootNotificationConfirmation{currentTime="2024-01-10T10:09:17.743Z", interval=60, status=Accepted, isValid=true}
      * Тестовый сын Джейсона для steve:
-     * ["db","47fc19c0-9a0e-436d-a507-32052712a18c",{"tables":{"config_zs":"[{\"id\":34,\"key\":\"version\",\"value\":\"Firmware Service - dc3125d_2023-10-09::CHAdeMO - 3.4_d.0.9_23-9-8::CCS - 3.4_d.0.9_23-9-8::GBT - 3.2_a.0.3_23-8-12\",\"type\":\"string\",\"name\":\"Версия службы и контроллера\",\"secureLevel\":false},{\"id\":8,\"key\":\"EnableCardReader\",\"value\":\"true\",\"type\":\"bool\",\"name\":\"Включение RFID считывателя\",\"secureLevel\":true},{\"id\":4,\"key\":\"coefMode3Type1\",\"value\":\"3200\",\"type\":\"int\",\"name\":\"Коэффициент счетчика type1\",\"secureLevel\":true},{\"id\":1,\"key\":\"ChargePointModel\",\"value\":\"CPmodel\",\"type\":\"string\",\"name\":\"Модель ЗС\",\"secureLevel\":false},{\"id\":2,\"key\":\"ChargePointSerialNumber\",\"value\":\"23X000002\",\"type\":\"string\",\"name\":\"Серийный номер\",\"secureLevel\":false},{\"id\":5,\"key\":\"coefMode3Type2\",\"value\":\"400\",\"type\":\"int\",\"name\":\"Коэффициент счетчика type2\",\"secureLevel\":true},{\"id\":6,\"key\":\"mode3rfidStart\",\"value\":\"false\",\"type\":\"bool\",\"name\":\"Старт с RFID\",\"secureLevel\":false},{\"id\":7,\"key\":\"provider\",\"value\":\"full\",\"type\":\"string\",\"name\":\"Использование полного счетчика\",\"secureLevel\":true},{\"id\":9,\"key\":\"restartTime\",\"value\":\"01:00\",\"type\":\"string\",\"name\":\"Время диагностической перезагрузки\",\"secureLevel\":false},{\"id\":10,\"key\":\"statusButton\",\"value\":\"false\",\"type\":\"bool\",\"name\":\"Включение кнопок\",\"secureLevel\":true},{\"id\":11,\"key\":\"parallelCharging\",\"value\":\"true\",\"type\":\"bool\",\"name\":\"Параллельная зарядка\",\"secureLevel\":true},{\"id\":12,\"key\":\"slave1\",\"value\":\"false\",\"type\":\"bool\",\"name\":\"Type2\",\"secureLevel\":false},{\"id\":13,\"key\":\"slave2\",\"value\":\"true\",\"type\":\"bool\",\"name\":\"CHAdeMO\",\"secureLevel\":true},{\"id\":14,\"key\":\"slave3\",\"value\":\"true\",\"type\":\"bool\",\"name\":\"CCS\",\"secureLevel\":true},{\"id\":15,\"key\":\"slave4\",\"value\":\"false\",\"type\":\"bool\",\"name\":\"Type1\",\"secureLevel\":false},{\"id\":16,\"key\":\"slave5\",\"value\":\"true\",\"type\":\"bool\",\"name\":\"GB/T\",\"secureLevel\":true},{\"id\":17,\"key\":\"slave6\",\"value\":\"false\",\"type\":\"bool\",\"name\":\"CCS2\",\"secureLevel\":false},{\"id\":18,\"key\":\"port\",\"value\":\"/dev/ttyUSB0\",\"type\":\"string\",\"name\":\"Порт общения с контроллером\",\"secureLevel\":true},{\"id\":19,\"key\":\"combination\",\"value\":\"12345\",\"type\":\"string\",\"name\":\"Комбинация отображения коннекторов\",\"secureLevel\":true},{\"id\":20,\"key\":\"recomboMode3\",\"value\":\"false\",\"type\":\"bool\",\"name\":\"Подмена изображения Mode3\",\"secureLevel\":true},{\"id\":21,\"key\":\"adresCS\",\"value\":\"ws://10.10.0.255:8080/steve/websocket/CentralSystemService/\",\"type\":\"string\",\"name\":\"Адрес ЦС\",\"secureLevel\":false},{\"id\":22,\"key\":\"maxPowerSlave1\",\"value\":\"22\",\"type\":\"int\",\"name\":\"Максимальная мощность Type2 в кВт\",\"secureLevel\":true},{\"id\":23,\"key\":\"maxAmperSlave1\",\"value\":\"32\",\"type\":\"int\",\"name\":\"Максимальный ток Type2 в А\",\"secureLevel\":true},{\"id\":24,\"key\":\"maxPowerSlave2\",\"value\":\"60\",\"type\":\"int\",\"name\":\"Максимальная мощность CHAdeMO в кВт\",\"secureLevel\":true},{\"id\":25,\"key\":\"maxAmperSlave2\",\"value\":\"120\",\"type\":\"int\",\"name\":\"Максимальный ток CHAdeMO в А\",\"secureLevel\":true},{\"id\":26,\"key\":\"maxPowerSlave3\",\"value\":\"60\",\"type\":\"int\",\"name\":\"Максимальная мощность CCS в кВт\",\"secureLevel\":true},{\"id\":27,\"key\":\"maxAmperSlave3\",\"value\":\"120\",\"type\":\"int\",\"name\":\"Максимальный ток CCS в А\",\"secureLevel\":true},{\"id\":28,\"key\":\"maxPowerSlave4\",\"value\":\"7\",\"type\":\"int\",\"name\":\"Максимальная мощность Type1 в кВт\",\"secureLevel\":true},{\"id\":29,\"key\":\"maxAmperSlave4\",\"value\":\"32\",\"type\":\"int\",\"name\":\"Максимальный ток Type1 в А\",\"secureLevel\":true},{\"id\":30,\"key\":\"maxPowerSlave5\",\"value\":\"60\",\"type\":\"int\",\"name\":\"Максимальная мощность GB/T в кВт\",\"secureLevel\":true},{\"id\":31,\"key\":\"maxAmperSlave5\",\"value\":\"120\",\"type\":\"int\",\"name\":\"Максимальный ток GB/T в А\",\"secureLevel\":true},{\"id\":32,\"key\":\"maxPowerSlave6\",\"value\":\"60\",\"type\":\"int\",\"name\":\"Максимальная мощность CCS2 в кВт\",\"secureLevel\":true},{\"id\":33,\"key\":\"maxAmperSlave6\",\"value\":\"120\",\"type\":\"int\",\"name\":\"Максимальный ток CCS2 в А\",\"secureLevel\":true},{\"id\":35,\"key\":\"statusAdmin\",\"value\":\"false\",\"type\":\"bool\",\"name\":\"Режим Админа\",\"secureLevel\":true},{\"id\":36,\"key\":\"local\",\"value\":\"false\",\"type\":\"bool\",\"name\":\"Локальный режим станции\",\"secureLevel\":false},{\"id\":37,\"key\":\"ChademoPreparing\",\"value\":\"false\",\"type\":\"bool\",\"name\":\"Перевод Чадемо в Preparing с контроллера\",\"secureLevel\":false},{\"id\":38,\"key\":\"LimitationType\",\"value\":\"true\",\"type\":\"bool\",\"name\":\"Тип ограничения станции true-\u003e current, false \u003d power\",\"secureLevel\":false},{\"id\":39,\"key\":\"maxPowerStation\",\"value\":\"160\",\"type\":\"int\",\"name\":\"Максимальная мощность станции кВт\",\"secureLevel\":true},{\"id\":40,\"key\":\"maxCurrentStation\",\"value\":\"160\",\"type\":\"int\",\"name\":\"Максимальный ток станции А\",\"secureLevel\":true},{\"id\":41,\"key\":\"infoStation\",\"value\":\"true\",\"type\":\"bool\",\"name\":\"Вывод информации по станции\",\"secureLevel\":false},{\"id\":42,\"key\":\"modulesPower\",\"value\":\"40\",\"type\":\"int\",\"name\":\"Мощность силового модуля\",\"secureLevel\":false},{\"id\":43,\"key\":\"parkingMod\",\"value\":\"false\",\"type\":\"bool\",\"name\":\"Паркинг мод\",\"secureLevel\":true},{\"id\":44,\"key\":\"shunt\",\"value\":\"8\",\"type\":\"int\",\"name\":\"Настройка шунта\",\"secureLevel\":false},{\"id\":45,\"key\":\"newMira\",\"value\":\"false\",\"type\":\"bool\",\"name\":\"Режим работы с новой мирой\",\"secureLevel\":false},{\"id\":46,\"key\":\"FrontPower\",\"value\":\"true\",\"type\":\"bool\",\"name\":\"Отображение мощности\",\"secureLevel\":false},{\"id\":47,\"key\":\"FrontAReq\",\"value\":\"false\",\"type\":\"bool\",\"name\":\"Отображении тока запроса\",\"secureLevel\":false},{\"id\":48,\"key\":\"FrontATarget\",\"value\":\"true\",\"type\":\"bool\",\"name\":\"Отображение тока фактического\",\"secureLevel\":false},{\"id\":49,\"key\":\"FrontVReq\",\"value\":\"false\",\"type\":\"bool\",\"name\":\"отображение напряжения запроса\",\"secureLevel\":false},{\"id\":50,\"key\":\"FrontVTarget\",\"value\":\"true\",\"type\":\"bool\",\"name\":\"Отображение напряжение фактического\",\"secureLevel\":false},{\"id\":51,\"key\":\"FrontConsumer\",\"value\":\"true\",\"type\":\"bool\",\"name\":\"Отображение потребленной энергии за сессию\",\"secureLevel\":false},{\"id\":52,\"key\":\"FrontFullConsumer\",\"value\":\"false\",\"type\":\"bool\",\"name\":\"Отображение потребленной энергии за все время\",\"secureLevel\":false},{\"id\":53,\"key\":\"FrontMaxASession\",\"value\":\"false\",\"type\":\"bool\",\"name\":\"Отображение ограничения по току за сессию\",\"secureLevel\":false},{\"id\":54,\"key\":\"FrontMaxWSession\",\"value\":\"false\",\"type\":\"bool\",\"name\":\"Отображение ограничения по мощности за сессию\",\"secureLevel\":false},{\"id\":55,\"key\":\"FrontMaxA\",\"value\":\"false\",\"type\":\"bool\",\"name\":\"Отображение максимального тока коннектора\",\"secureLevel\":false},{\"id\":56,\"key\":\"FrontMaxW\",\"value\":\"false\",\"type\":\"bool\",\"name\":\"Отображение максимальной мощности коннектора\",\"secureLevel\":false},{\"id\":57,\"key\":\"FrontMinA\",\"value\":\"false\",\"type\":\"bool\",\"name\":\"Отображение минимального тока коннектора\",\"secureLevel\":false},{\"id\":58,\"key\":\"FrontMinW\",\"value\":\"false\",\"type\":\"bool\",\"name\":\"Отображение минимальной мощности коннектора\",\"secureLevel\":false},{\"id\":59,\"key\":\"FrontTemperature\",\"value\":\"false\",\"type\":\"bool\",\"name\":\"Отображение температуры АКБ (только ГБТ)\",\"secureLevel\":false},{\"id\":60,\"key\":\"FrontTimeCharge\",\"value\":\"true\",\"type\":\"bool\",\"name\":\"Отображение времени зарядки\",\"secureLevel\":false},{\"id\":61,\"key\":\"startPreparing\",\"value\":\"false\",\"type\":\"bool\",\"name\":\"Автоматический старт при обноружении Preparing\",\"secureLevel\":false},{\"id\":62,\"key\":\"flagNoResponseStop\",\"value\":\"false\",\"type\":\"bool\",\"name\":\"Отключение ожидания ответа стопа транзакции (Для трассы)\",\"secureLevel\":false},{\"id\":63,\"key\":\"connectorInsertedTime\",\"value\":\"90\",\"type\":\"int\",\"name\":\"Таймер ожидания после вставки коннектора Mod4\",\"secureLevel\":false},{\"id\":64,\"key\":\"flaglegLift\",\"value\":\"false\",\"type\":\"bool\",\"name\":\"Флаг поднятия ножки\",\"secureLevel\":false},{\"id\":3,\"key\":\"ChargePointID\",\"value\":\"23X000002\",\"type\":\"string\",\"name\":\"Идентификатор ЗС\",\"secureLevel\":false}]"}}]
+     * ["db","6a2f6fce-242c-4691-b165-0550ab2a77ad",{"tables":[{"name":"Версия службы и контроллера","secure_level":false,"id":34,"type":"string","value":"Firmware Service - dc3125d_2023-10-09::CHAdeMO - 3.4_d.0.9_23-9-8::CCS - 3.4_d.0.9_23-9-8::GBT - 3.2_a.0.3_23-8-12","key":"version"},{"name":"Включение RFID считывателя","secure_level":true,"id":8,"type":"bool","value":"true","key":"EnableCardReader"},{"name":"Модель ЗС","secure_level":false,"id":1,"type":"string","value":"CPmodel","key":"ChargePointModel"},{"name":"Серийный номер","secure_level":false,"id":2,"type":"string","value":"23X000002","key":"ChargePointSerialNumber"},{"name":"Коэффициент счетчика type1","secure_level":true,"id":4,"type":"int","value":"200","key":"coefMode3Type1"},{"name":"Коэффициент счетчика type2","secure_level":true,"id":5,"type":"int","value":"400","key":"coefMode3Type2"},{"name":"Старт с RFID","secure_level":false,"id":6,"type":"bool","value":"false","key":"mode3rfidStart"},{"name":"Использование полного счетчика","secure_level":true,"id":7,"type":"string","value":"full","key":"provider"},{"name":"Время диагностической перезагрузки","secure_level":false,"id":9,"type":"string","value":"01:00","key":"restartTime"},{"name":"Включение кнопок","secure_level":true,"id":10,"type":"bool","value":"false","key":"statusButton"},{"name":"Параллельная зарядка","secure_level":true,"id":11,"type":"bool","value":"true","key":"parallelCharging"},{"name":"Type2","secure_level":false,"id":12,"type":"bool","value":"false","key":"slave1"},{"name":"CHAdeMO","secure_level":true,"id":13,"type":"bool","value":"true","key":"slave2"},{"name":"CCS","secure_level":true,"id":14,"type":"bool","value":"true","key":"slave3"},{"name":"Type1","secure_level":false,"id":15,"type":"bool","value":"false","key":"slave4"},{"name":"GB/T","secure_level":true,"id":16,"type":"bool","value":"true","key":"slave5"},{"name":"CCS2","secure_level":false,"id":17,"type":"bool","value":"false","key":"slave6"},{"name":"Порт общения с контроллером","secure_level":true,"id":18,"type":"string","value":"/dev/ttyUSB0","key":"port"},{"name":"Комбинация отображения коннекторов","secure_level":true,"id":19,"type":"string","value":"12345","key":"combination"},{"name":"Подмена изображения Mode3","secure_level":true,"id":20,"type":"bool","value":"false","key":"recomboMode3"},{"name":"Адрес ЦС","secure_level":false,"id":21,"type":"string","value":"ws://10.10.0.255:8080/steve/websocket/CentralSystemService/","key":"adresCS"},{"name":"Максимальная мощность Type2 в кВт","secure_level":true,"id":22,"type":"int","value":"22","key":"maxPowerSlave1"},{"name":"Максимальный ток Type2 в А","secure_level":true,"id":23,"type":"int","value":"32","key":"maxAmperSlave1"},{"name":"Максимальная мощность CHAdeMO в кВт","secure_level":true,"id":24,"type":"int","value":"60","key":"maxPowerSlave2"},{"name":"Максимальный ток CHAdeMO в А","secure_level":true,"id":25,"type":"int","value":"120","key":"maxAmperSlave2"},{"name":"Максимальная мощность CCS в кВт","secure_level":true,"id":26,"type":"int","value":"60","key":"maxPowerSlave3"},{"name":"Максимальный ток CCS в А","secure_level":true,"id":27,"type":"int","value":"120","key":"maxAmperSlave3"},{"name":"Максимальная мощность Type1 в кВт","secure_level":true,"id":28,"type":"int","value":"7","key":"maxPowerSlave4"},{"name":"Максимальный ток Type1 в А","secure_level":true,"id":29,"type":"int","value":"32","key":"maxAmperSlave4"},{"name":"Максимальная мощность GB/T в кВт","secure_level":true,"id":30,"type":"int","value":"60","key":"maxPowerSlave5"},{"name":"Максимальный ток GB/T в А","secure_level":true,"id":31,"type":"int","value":"120","key":"maxAmperSlave5"},{"name":"Максимальная мощность CCS2 в кВт","secure_level":true,"id":32,"type":"int","value":"60","key":"maxPowerSlave6"},{"name":"Максимальный ток CCS2 в А","secure_level":true,"id":33,"type":"int","value":"120","key":"maxAmperSlave6"},{"name":"Режим Админа","secure_level":true,"id":35,"type":"bool","value":"false","key":"statusAdmin"},{"name":"Локальный режим станции","secure_level":false,"id":36,"type":"bool","value":"false","key":"local"},{"name":"Перевод Чадемо в Preparing с контроллера","secure_level":false,"id":37,"type":"bool","value":"false","key":"ChademoPreparing"},{"name":"Тип ограничения станции true-\u003e current, false \u003d power","secure_level":false,"id":38,"type":"bool","value":"true","key":"LimitationType"},{"name":"Максимальная мощность станции кВт","secure_level":true,"id":39,"type":"int","value":"160","key":"maxPowerStation"},{"name":"Максимальный ток станции А","secure_level":true,"id":40,"type":"int","value":"160","key":"maxCurrentStation"},{"name":"Вывод информации по станции","secure_level":false,"id":41,"type":"bool","value":"true","key":"infoStation"},{"name":"Мощность силового модуля","secure_level":false,"id":42,"type":"int","value":"40","key":"modulesPower"},{"name":"Паркинг мод","secure_level":true,"id":43,"type":"bool","value":"false","key":"parkingMod"},{"name":"Настройка шунта","secure_level":false,"id":44,"type":"int","value":"8","key":"shunt"},{"name":"Режим работы с новой мирой","secure_level":false,"id":45,"type":"bool","value":"false","key":"newMira"},{"name":"Отображение мощности","secure_level":false,"id":46,"type":"bool","value":"true","key":"FrontPower"},{"name":"Отображении тока запроса","secure_level":false,"id":47,"type":"bool","value":"false","key":"FrontAReq"},{"name":"Отображение тока фактического","secure_level":false,"id":48,"type":"bool","value":"true","key":"FrontATarget"},{"name":"отображение напряжения запроса","secure_level":false,"id":49,"type":"bool","value":"false","key":"FrontVReq"},{"name":"Отображение напряжение фактического","secure_level":false,"id":50,"type":"bool","value":"true","key":"FrontVTarget"},{"name":"Отображение потребленной энергии за сессию","secure_level":false,"id":51,"type":"bool","value":"true","key":"FrontConsumer"},{"name":"Отображение потребленной энергии за все время","secure_level":false,"id":52,"type":"bool","value":"false","key":"FrontFullConsumer"},{"name":"Отображение ограничения по току за сессию","secure_level":false,"id":53,"type":"bool","value":"false","key":"FrontMaxASession"},{"name":"Отображение ограничения по мощности за сессию","secure_level":false,"id":54,"type":"bool","value":"false","key":"FrontMaxWSession"},{"name":"Отображение максимального тока коннектора","secure_level":false,"id":55,"type":"bool","value":"false","key":"FrontMaxA"},{"name":"Отображение максимальной мощности коннектора","secure_level":false,"id":56,"type":"bool","value":"false","key":"FrontMaxW"},{"name":"Отображение минимального тока коннектора","secure_level":false,"id":57,"type":"bool","value":"false","key":"FrontMinA"},{"name":"Отображение минимальной мощности коннектора","secure_level":false,"id":58,"type":"bool","value":"false","key":"FrontMinW"},{"name":"Отображение температуры АКБ (только ГБТ)","secure_level":false,"id":59,"type":"bool","value":"false","key":"FrontTemperature"},{"name":"Отображение времени зарядки","secure_level":false,"id":60,"type":"bool","value":"true","key":"FrontTimeCharge"},{"name":"Автоматический старт при обноружении Preparing","secure_level":false,"id":61,"type":"bool","value":"false","key":"startPreparing"},{"name":"Отключение ожидания ответа стопа транзакции (Для трассы)","secure_level":false,"id":62,"type":"bool","value":"false","key":"flagNoResponseStop"},{"name":"Таймер ожидания после вставки коннектора Mod4","secure_level":false,"id":63,"type":"int","value":"90","key":"connectorInsertedTime"},{"name":"Флаг поднятия ножки","secure_level":false,"id":64,"type":"bool","value":"false","key":"flaglegLift"},{"name":"Идентификатор ЗС","secure_level":false,"id":3,"type":"string","value":"23X000002","key":"ChargePointID"}]}]
      */
     @Override
     public void sendBootNotification(List<Object> parsedMessage) {
-        Map<String, Map<String, String>> tablesMap = (Map<String, Map<String, String>>) parsedMessage.get(2);
-        String fixedString = (tablesMap.get("tables")).get("config_zs")
-                .replace("[*[", "[[")
-                .replace("\\\"", "\"");
+        BootNotificationRequest bootNotificationRequest = new BootNotificationRequest(parsedMessage);
 
-        try {
-            List<Map<String, Object>> configZSList = (new ObjectMapper()).readValue(fixedString, List.class);
-            if (configZSList != null) {
-                String addressCP = null, chargePointID = null, model = null;
+        if (bootNotificationRequest.getAddressCP() != null &&
+                bootNotificationRequest.getChargePointID() != null &&
+                bootNotificationRequest.getModel() != null) {
+            log.info("OCPP is ready to connect with the central system and send the boot notification");
 
-                for (Map<String, Object> map : configZSList) {
-                    String key = map.get("key").toString();
-                    switch (key) {
-                        case ("adresCS"):
-                            addressCP = map.get("value").toString();
-                            break;
-                        case ("ChargePointID"):
-                            chargePointID = map.get("value").toString();
-                            break;
-                        case ("ChargePointModel"):
-                            model = map.get("value").toString();
-                    }
-                }
-
-                if (addressCP != null && chargePointID != null && model != null) {
-                    log.info("OCPP is ready to connect with the central system and send the boot notification");
-
-                    if (addressCP.endsWith("/")) {
-                        addressCP = addressCP.substring(0, addressCP.length() - 1);
-                    }
-
-                    ClientCoreProfile core = handler.getCore();
-                    JSONClient jsonClient = new JSONClient(core, chargePointID);
-                    jsonClient.connect(addressCP, null);
-                    client = jsonClient;
-
-                    // Use the feature profile to help create event
-                    Request request = core.createBootNotificationRequest(vendorName, model);
-
-                    // Client returns a promise which will be filled once it receives a confirmation.
-                    try {
-                        client.send(request).whenComplete((confirmation, ex) -> {
-                            log.info("Received from the central system: " + confirmation.toString());
-                            handleResponse(confirmation);
-                        });
-                    } catch (OccurenceConstraintException | UnsupportedFeatureException e) {
-                        log.error("Аn error occurred while trying to send a boot notification");
-                    }
-                } else {
-                    log.error("OCPP did not receive one of the parameters (adresCS, ChargePointID, ChargePointVendor, " +
-                            "ChargePointModel) and cannot establish a connection the central system");
-                }
+            if (bootNotificationRequest.getAddressCP().endsWith("/")) {
+                bootNotificationRequest.setAddressCP(
+                        bootNotificationRequest.getAddressCP().substring(0, bootNotificationRequest.getAddressCP().length() - 1)
+                );
             }
-        } catch (JsonProcessingException e) {
-            log.error("Error when parsing config_zs table");
+
+            ClientCoreProfile core = handler.getCore();
+            JSONClient jsonClient = new JSONClient(core, bootNotificationRequest.getChargePointID());
+            jsonClient.connect(bootNotificationRequest.getAddressCP(), null);
+            client = jsonClient;
+
+            // Use the feature profile to help create event
+            Request request = core.createBootNotificationRequest(vendorName, bootNotificationRequest.getModel());
+
+            // Client returns a promise which will be filled once it receives a confirmation.
+            try {
+                client.send(request).whenComplete((confirmation, ex) -> {
+                    log.info("Received from the central system: " + confirmation.toString());
+                    handleResponse(confirmation);
+                });
+            } catch (OccurenceConstraintException | UnsupportedFeatureException e) {
+                log.error("Аn error occurred while trying to send a boot notification");
+            }
+        } else {
+            log.error("OCPP did not receive one of the parameters (adresCS, ChargePointID, ChargePointVendor, " +
+                    "ChargePointModel) and cannot establish a connection the central system");
         }
     }
 
