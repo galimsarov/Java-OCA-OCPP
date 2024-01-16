@@ -6,12 +6,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.EnableRabbit;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
-import pss.mira.orp.JavaOCAOCPP.models.enums.Actions;
 import pss.mira.orp.JavaOCAOCPP.models.requests.ocpp.StatusNotificationRequest;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
 import pss.mira.orp.JavaOCAOCPP.service.cache.request.RequestCache;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.authorize.Authorize;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.dataTransfer.DataTransfer;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.Handler;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.startTransaction.StartTransaction;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.statusNotification.StatusNotification;
@@ -29,6 +29,7 @@ public class ListenerImpl implements Listener {
     private final Authorize authorize;
     private final BootNotification bootNotification;
     private final ConnectorsInfoCache connectorsInfoCache;
+    private final DataTransfer dataTransfer;
     private final Handler handler;
     private final RequestCache requestCache;
     private final StartTransaction startTransaction;
@@ -40,6 +41,7 @@ public class ListenerImpl implements Listener {
             Authorize authorize,
             BootNotification bootNotification,
             ConnectorsInfoCache connectorsInfoCache,
+            DataTransfer dataTransfer,
             Handler handler,
             RequestCache requestCache,
             StartTransaction startTransaction,
@@ -49,6 +51,7 @@ public class ListenerImpl implements Listener {
         this.authorize = authorize;
         this.bootNotification = bootNotification;
         this.connectorsInfoCache = connectorsInfoCache;
+        this.dataTransfer = dataTransfer;
         this.handler = handler;
         this.requestCache = requestCache;
         this.startTransaction = startTransaction;
@@ -89,8 +92,8 @@ public class ListenerImpl implements Listener {
                                             connectorsInfoCache.getStatusNotificationRequest(connectorId);
                                     statusNotification.sendStatusNotification(statusNotificationRequest);
                                 }
-                                // здесь добавляем полученное значение из очереди, благодаря которому уйдёт ответ в ЦС на
-                                // запрос по смене статуса
+                                // здесь добавляем полученное значение из очереди, благодаря которому уйдёт ответ в ЦС
+                                // на запрос по смене статуса
                                 handler.setAvailabilityStatus(parsedMessage);
                                 break;
                         }
@@ -98,12 +101,19 @@ public class ListenerImpl implements Listener {
                     }
                 } else {
                     // запросы
-                    if (parsedMessage.get(2).toString().equals(Actions.Authorize.name())) {
-                        authorize.sendAuthorize(parsedMessage);
-                    } else if (parsedMessage.get(2).toString().equals(Actions.StartTransaction.name())) {
-                        startTransaction.sendStartTransaction(parsedMessage);
-                    } else if (parsedMessage.get(2).toString().equals(Actions.StopTransaction.name())) {
-                        stopTransaction.sendStopTransaction(parsedMessage);
+                    switch (parsedMessage.get(2).toString()) {
+                        case ("Authorize"):
+                            authorize.sendAuthorize(parsedMessage);
+                            break;
+                        case ("DataTransfer"):
+                            dataTransfer.sendDataTransfer(parsedMessage);
+                            break;
+                        case ("StartTransaction"):
+                            startTransaction.sendStartTransaction(parsedMessage);
+                            break;
+                        case ("StopTransaction"):
+                            stopTransaction.sendStopTransaction(parsedMessage);
+                            break;
                     }
                 }
             } else {

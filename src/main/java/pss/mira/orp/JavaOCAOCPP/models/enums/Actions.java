@@ -5,9 +5,5 @@ public enum Actions {
     Change,
     Get,
     // ModBus
-    ChangeAvailability,
-    // входящий
-    Authorize,
-    StartTransaction,
-    StopTransaction
+    ChangeAvailability
 }

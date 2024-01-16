@@ -127,10 +127,7 @@ public class HandlerImpl implements Handler {
 
             @Override
             public ClearCacheConfirmation handleClearCacheRequest(ClearCacheRequest request) {
-
-                log.info(request.toString());
-                // ... handle event
-
+                log.info("Received from the central system: " + request.toString());
                 return null; // returning null means unsupported feature
             }
 
