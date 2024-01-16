@@ -88,6 +88,7 @@ public class BootNotificationImpl implements BootNotification {
 
     private void handleResponse(Confirmation confirmation) {
         BootNotificationConfirmation bootNotificationConfirmation = (BootNotificationConfirmation) confirmation;
+        // TODO Сделать другие варианты, кроме Accepted
         if (bootNotificationConfirmation.getStatus().equals(Accepted)) {
             timeSetter.setTime(bootNotificationConfirmation.getCurrentTime());
 

@@ -8,4 +8,6 @@ public interface Handler {
     ClientCoreProfile getCore();
 
     void setAvailabilityStatus(List<Object> parsedMessage);
+
+    void setConfigurationMap(List<Object> parsedMessage);
 }

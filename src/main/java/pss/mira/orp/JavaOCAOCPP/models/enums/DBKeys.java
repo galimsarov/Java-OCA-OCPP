@@ -1,5 +1,6 @@
 package pss.mira.orp.JavaOCAOCPP.models.enums;
 
 public enum DBKeys {
-    config_zs
+    config_zs,
+    configuration
 }

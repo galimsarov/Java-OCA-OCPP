@@ -22,6 +22,7 @@ import java.util.Map;
 
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.ChangeAvailability;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.config_zs;
+import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.configuration;
 
 @EnableRabbit
 @Component
@@ -72,6 +73,8 @@ public class ListenerImpl implements Listener {
                         // запрос в кэше найден
                         if (cashedRequest.get(4).equals(config_zs.name())) {
                             sendBootNotification(parsedMessage);
+                        } else if (cashedRequest.get(4).equals(configuration.name())) {
+                            handler.setConfigurationMap(parsedMessage);
                         } else if (cashedRequest.get(4).equals(ChangeAvailability.name())) {
                             // чтобы не было циклических зависимостей отправку StatusNotification делаем здесь
                             int connectorId = requestCache.getConnectorId(
