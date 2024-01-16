@@ -2,7 +2,7 @@ package pss.mira.orp.JavaOCAOCPP.bootstrap;
 
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
-import pss.mira.orp.JavaOCAOCPP.models.requests.rabbit.DBTablesRequest;
+import pss.mira.orp.JavaOCAOCPP.models.requests.rabbit.DBTablesGetRequest;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 
 import java.util.List;
@@ -26,7 +26,7 @@ public class OcppLoader implements CommandLineRunner {
                 bd.name(),
                 UUID.randomUUID().toString(),
                 Get.name(),
-                new DBTablesRequest(List.of(config_zs.name())),
+                new DBTablesGetRequest(List.of(config_zs.name())),
                 config_zs.name()
         );
     }

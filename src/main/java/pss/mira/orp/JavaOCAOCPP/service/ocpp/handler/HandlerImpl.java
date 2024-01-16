@@ -5,16 +5,17 @@ import eu.chargetime.ocpp.feature.profile.ClientCoreProfile;
 import eu.chargetime.ocpp.model.core.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import pss.mira.orp.JavaOCAOCPP.models.requests.rabbit.DBTablesRequest;
+import pss.mira.orp.JavaOCAOCPP.models.requests.rabbit.DBTablesChangeRequest;
+import pss.mira.orp.JavaOCAOCPP.models.requests.rabbit.DBTablesGetRequest;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.ChangeAvailability;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.Get;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.configuration;
+import static eu.chargetime.ocpp.model.core.ConfigurationStatus.NotSupported;
+import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.*;
+import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.*;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Services.ModBus;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Services.bd;
 
@@ -24,6 +25,7 @@ public class HandlerImpl implements Handler {
     private final Sender sender;
     private AvailabilityStatus availabilityStatus = null;
     private List<Map<String, Object>> configurationList = null;
+    private ConfigurationStatus changeConfigurationStatus = null;
 
     public HandlerImpl(Sender sender) {
         this.sender = sender;
@@ -71,18 +73,19 @@ public class HandlerImpl implements Handler {
                         bd.name(),
                         UUID.randomUUID().toString(),
                         Get.name(),
-                        new DBTablesRequest(List.of(configuration.name())),
-                        configuration.name()
+                        new DBTablesGetRequest(List.of(configuration.name())),
+                        getConfiguration.name()
                 );
                 while (true) {
                     if (configurationList == null) {
                         try {
                             Thread.sleep(1000);
                         } catch (InterruptedException e) {
-                            log.error("Аn error while waiting for a change availability response");
+                            log.error("Аn error while waiting for a get configuration response");
                         }
                     } else {
-                        GetConfigurationConfirmation result = getGetConfigurationConfirmation(request, configurationList);
+                        GetConfigurationConfirmation result =
+                                getGetConfigurationConfirmation(request, configurationList);
                         log.info("Send to the central system: " + result);
                         configurationList = null;
                         return result;
@@ -91,12 +94,35 @@ public class HandlerImpl implements Handler {
             }
 
             @Override
-            public ChangeConfigurationConfirmation handleChangeConfigurationRequest(ChangeConfigurationRequest request) {
-
-                log.info(request.toString());
-                // ... handle event
-
-                return null; // returning null means unsupported feature
+            public ChangeConfigurationConfirmation handleChangeConfigurationRequest(
+                    ChangeConfigurationRequest request
+            ) {
+                log.info("Received from the central system: " + request.toString());
+                sender.sendRequestToQueue(
+                        bd.name(),
+                        UUID.randomUUID().toString(),
+                        Change.name(),
+                        new DBTablesChangeRequest(
+                                configuration.name(),
+                                "key:" + request.getKey(),
+                                List.of(Map.of("key", "value", "value", request.getValue()))),
+                        changeConfiguration.name()
+                );
+                while (true) {
+                    if (changeConfigurationStatus == null) {
+                        try {
+                            Thread.sleep(1000);
+                        } catch (InterruptedException e) {
+                            log.error("Аn error while waiting for a change configuration response");
+                        }
+                    } else {
+                        ChangeConfigurationConfirmation result =
+                                new ChangeConfigurationConfirmation(changeConfigurationStatus);
+                        log.info("Send to the central system: " + result);
+                        changeConfigurationStatus = null;
+                        return result;
+                    }
+                }
             }
 
             @Override
@@ -191,7 +217,20 @@ public class HandlerImpl implements Handler {
 
     @Override
     public void setConfigurationMap(List<Object> parsedMessage) {
-        Map<String, List<Map<String, Object>>> map = (Map<String, List<Map<String, Object>>>) parsedMessage.get(2);
-        configurationList = map.get("tables");
+        Map<String, Map<String, List<Map<String, Object>>>> map =
+                (Map<String, Map<String, List<Map<String, Object>>>>) parsedMessage.get(2);
+        configurationList = map.get("tables").get(configuration.name());
+    }
+
+    @Override
+    public void setChangeConfigurationStatus(List<Object> parsedMessage) {
+        Map<String, String> map = (Map<String, String>) parsedMessage.get(2);
+        for (ConfigurationStatus configurationStatus : ConfigurationStatus.values()) {
+            if (configurationStatus.name().equals(map.get("result"))) {
+                changeConfigurationStatus = configurationStatus;
+                return;
+            }
+        }
+        changeConfigurationStatus = NotSupported;
     }
 }

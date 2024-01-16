@@ -21,8 +21,6 @@ import java.util.List;
 import java.util.Map;
 
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.ChangeAvailability;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.config_zs;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.configuration;
 
 @EnableRabbit
 @Component
@@ -71,23 +69,30 @@ public class ListenerImpl implements Listener {
                     List<Object> cashedRequest = requestCache.getCashedRequest(uuid);
                     if (cashedRequest != null) {
                         // запрос в кэше найден
-                        if (cashedRequest.get(4).equals(config_zs.name())) {
-                            sendBootNotification(parsedMessage);
-                        } else if (cashedRequest.get(4).equals(configuration.name())) {
-                            handler.setConfigurationMap(parsedMessage);
-                        } else if (cashedRequest.get(4).equals(ChangeAvailability.name())) {
-                            // чтобы не было циклических зависимостей отправку StatusNotification делаем здесь
-                            int connectorId = requestCache.getConnectorId(
-                                    parsedMessage.get(1).toString(), ChangeAvailability.name()
-                            );
-                            if (connectorId != -1) {
-                                StatusNotificationRequest statusNotificationRequest =
-                                        connectorsInfoCache.getStatusNotificationRequest(connectorId);
-                                statusNotification.sendStatusNotification(statusNotificationRequest);
-                            }
-                            // здесь добавляем полученное значение из очереди, благодаря которому уйдёт ответ в ЦС на
-                            // запрос по смене статуса
-                            handler.setAvailabilityStatus(parsedMessage);
+                        switch (cashedRequest.get(4).toString()) {
+                            case ("config_zs"):
+                                sendBootNotification(parsedMessage);
+                                break;
+                            case ("getConfiguration"):
+                                handler.setConfigurationMap(parsedMessage);
+                                break;
+                            case ("changeConfiguration"):
+                                handler.setChangeConfigurationStatus(parsedMessage);
+                                break;
+                            case ("ChangeAvailability"):
+                                // чтобы не было циклических зависимостей отправку StatusNotification делаем здесь
+                                int connectorId = requestCache.getConnectorId(
+                                        parsedMessage.get(1).toString(), ChangeAvailability.name()
+                                );
+                                if (connectorId != -1) {
+                                    StatusNotificationRequest statusNotificationRequest =
+                                            connectorsInfoCache.getStatusNotificationRequest(connectorId);
+                                    statusNotification.sendStatusNotification(statusNotificationRequest);
+                                }
+                                // здесь добавляем полученное значение из очереди, благодаря которому уйдёт ответ в ЦС на
+                                // запрос по смене статуса
+                                handler.setAvailabilityStatus(parsedMessage);
+                                break;
                         }
                         requestCache.removeFromCache(uuid);
                     }

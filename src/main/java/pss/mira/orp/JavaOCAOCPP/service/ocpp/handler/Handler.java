@@ -10,4 +10,6 @@ public interface Handler {
     void setAvailabilityStatus(List<Object> parsedMessage);
 
     void setConfigurationMap(List<Object> parsedMessage);
+
+    void setChangeConfigurationStatus(List<Object> parsedMessage);
 }

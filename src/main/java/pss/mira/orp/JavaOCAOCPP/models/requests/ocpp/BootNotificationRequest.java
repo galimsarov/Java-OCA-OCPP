@@ -14,8 +14,9 @@ public class BootNotificationRequest {
     private String model;
 
     public BootNotificationRequest(List<Object> parsedMessage) {
-        Map<String, List<Map<String, Object>>> tablesMap = (Map<String, List<Map<String, Object>>>) parsedMessage.get(2);
-        for (Map<String, Object> map : tablesMap.get("tables")) {
+        Map<String, Map<String, List<Map<String, Object>>>> tablesMap =
+                (Map<String, Map<String, List<Map<String, Object>>>>) parsedMessage.get(2);
+        for (Map<String, Object> map : tablesMap.get("tables").get("config_zs")) {
             String key = map.get("key").toString();
             switch (key) {
                 case ("adresCS"):

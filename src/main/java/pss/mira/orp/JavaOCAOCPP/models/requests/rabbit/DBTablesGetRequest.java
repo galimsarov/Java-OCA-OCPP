@@ -7,6 +7,6 @@ import java.util.List;
 
 @AllArgsConstructor
 @Data
-public class DBTablesRequest {
+public class DBTablesGetRequest {
     private List<String> tables;
 }
