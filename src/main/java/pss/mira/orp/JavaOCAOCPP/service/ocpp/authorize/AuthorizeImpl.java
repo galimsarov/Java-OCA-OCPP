@@ -35,33 +35,37 @@ public class AuthorizeImpl implements Authorize {
 
     /**
      * Отправляет запрос на авторизацию в ЦС
-     *
      * @param parsedMessage запрос от сервиса в формате:
-     *                      ["myQueue1","71f599b2-b3f0-4680-b447-ae6d6dc0cc0c","Authorize",{"idTag":"New"}]
+     * ["myQueue1","71f599b2-b3f0-4680-b447-ae6d6dc0cc0c","Authorize",{"idTag":"New"}]
      * Формат ответа от steve:
-     *                      AuthorizeConfirmation{idTagInfo=IdTagInfo{expiryDate="2024-01-10T11:12:02.925Z", parentIdTag=null, status=Accepted}, isValid=true}
+     * AuthorizeConfirmation{idTagInfo=IdTagInfo{expiryDate="2024-01-10T11:12:02.925Z", parentIdTag=null, status=Accepted}, isValid=true}
      */
     @Override
     public void sendAuthorize(List<Object> parsedMessage) {
         String consumer = parsedMessage.get(0).toString();
         String requestUuid = parsedMessage.get(1).toString();
-        Map<String, String> idTagMap = (Map<String, String>) parsedMessage.get(3);
-        String idTag = idTagMap.get("idTag");
-
-        ClientCoreProfile core = handler.getCore();
-        JSONClient client = bootNotification.getClient();
-
-        // Use the feature profile to help create event
-        Request request = core.createAuthorizeRequest(idTag);
-
-        // Client returns a promise which will be filled once it receives a confirmation.
+        Map<String, String> idTagMap;
         try {
-            client.send(request).whenComplete((confirmation, ex) -> {
-                log.info("Received from the central system: " + confirmation.toString());
-                handleResponse(consumer, requestUuid, confirmation);
-            });
-        } catch (OccurenceConstraintException | UnsupportedFeatureException ignored) {
-            log.warn("An error occurred while sending or processing authorize request");
+            idTagMap = (Map<String, String>) parsedMessage.get(3);
+            String idTag = idTagMap.get("idTag");
+
+            ClientCoreProfile core = handler.getCore();
+            JSONClient client = bootNotification.getClient();
+
+            // Use the feature profile to help create event
+            Request request = core.createAuthorizeRequest(idTag);
+
+            // Client returns a promise which will be filled once it receives a confirmation.
+            try {
+                client.send(request).whenComplete((confirmation, ex) -> {
+                    log.info("Received from the central system: " + confirmation.toString());
+                    handleResponse(consumer, requestUuid, confirmation);
+                });
+            } catch (OccurenceConstraintException | UnsupportedFeatureException ignored) {
+                log.warn("An error occurred while sending or processing authorize request");
+            }
+        } catch (Exception ignored) {
+            log.error("An error occurred while receiving idTag from the message");
         }
     }
 

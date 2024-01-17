@@ -30,44 +30,54 @@ public class DataTransferImpl implements DataTransfer {
         this.sender = sender;
     }
 
+    /**
+     * ["myQueue1","71f599b2-b3f0-4680-b447-ae6d6dc0cc0c","DataTransfer",{"vendorId":"vendorId"}]
+     */
     @Override
     public void sendDataTransfer(List<Object> parsedMessage) {
         String consumer = parsedMessage.get(0).toString();
         String requestUuid = parsedMessage.get(1).toString();
-        Map<String, Object> dataTransferMap = (Map<String, Object>) parsedMessage.get(3);
-        String vendorId = dataTransferMap.get("vendorId").toString();
-        String messageId = null, data = null;
+        Map<String, Object> dataTransferMap;
         try {
-            messageId = dataTransferMap.get("messageId").toString();
-        } catch (NullPointerException ignored) {
+            dataTransferMap = (Map<String, Object>) parsedMessage.get(3);
+            // required
+            String vendorId = dataTransferMap.get("vendorId").toString();
+            // optional
+            String messageId = null, data = null;
+            try {
+                messageId = dataTransferMap.get("messageId").toString();
+            } catch (NullPointerException ignored) {
 
-        }
-        try {
-            data = dataTransferMap.get("data").toString();
-        } catch (NullPointerException ignored) {
+            }
+            try {
+                data = dataTransferMap.get("data").toString();
+            } catch (NullPointerException ignored) {
 
-        }
+            }
 
-        ClientCoreProfile core = handler.getCore();
-        JSONClient client = bootNotification.getClient();
+            ClientCoreProfile core = handler.getCore();
+            JSONClient client = bootNotification.getClient();
 
-        // Use the feature profile to help create event
-        DataTransferRequest request = core.createDataTransferRequest(vendorId);
-        if (messageId != null) {
-            request.setMessageId(messageId);
-        }
-        if (data != null) {
-            request.setData(data);
-        }
+            // Use the feature profile to help create event
+            DataTransferRequest request = core.createDataTransferRequest(vendorId);
+            if (messageId != null) {
+                request.setMessageId(messageId);
+            }
+            if (data != null) {
+                request.setData(data);
+            }
 
-        // Client returns a promise which will be filled once it receives a confirmation.
-        try {
-            client.send(request).whenComplete((confirmation, ex) -> {
-                log.info("Received from the central system: " + confirmation.toString());
-                handleResponse(consumer, requestUuid, confirmation);
-            });
-        } catch (OccurenceConstraintException | UnsupportedFeatureException ignored) {
-            log.warn("An error occurred while sending or processing authorize request");
+            // Client returns a promise which will be filled once it receives a confirmation.
+            try {
+                client.send(request).whenComplete((confirmation, ex) -> {
+                    log.info("Received from the central system: " + confirmation.toString());
+                    handleResponse(consumer, requestUuid, confirmation);
+                });
+            } catch (OccurenceConstraintException | UnsupportedFeatureException ignored) {
+                log.warn("An error occurred while sending or processing authorize request");
+            }
+        } catch (Exception ignored) {
+            log.error("An error occurred while receiving vendorId from the message");
         }
     }
 

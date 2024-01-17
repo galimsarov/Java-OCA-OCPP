@@ -8,6 +8,4 @@ public interface BootNotification {
     void sendBootNotification(List<Object> parsedMessage);
 
     JSONClient getClient();
-
-
 }

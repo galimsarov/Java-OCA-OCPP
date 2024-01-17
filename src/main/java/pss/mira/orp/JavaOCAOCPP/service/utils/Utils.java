@@ -2,8 +2,9 @@ package pss.mira.orp.JavaOCAOCPP.service.utils;
 
 import eu.chargetime.ocpp.model.core.IdTagInfo;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 public class Utils {
     public static Map<String, String> getIdTagInfoMap(IdTagInfo idTagInfo) {
@@ -12,5 +13,25 @@ public class Utils {
         idTagInfoMap.put("parentIdTag", idTagInfo.getParentIdTag());
         idTagInfoMap.put("status", idTagInfo.getStatus().toString());
         return idTagInfoMap;
+    }
+
+    public static Map<String, List<Map<String, String>>> getDBTablesGetRequest(List<String> tableNames) {
+        List<Map<String, String>> tables = new ArrayList<>();
+        for (String tableName : tableNames) {
+            Map<String, String> tableMap = new HashMap<>();
+            tableMap.put("nameTable", tableName);
+            tables.add(tableMap);
+        }
+        return Map.of("tables", tables);
+    }
+
+    public static List<Map<String, Object>> getResult(List<Object> parsedMessage) {
+        Map<String, List<Map<String, Object>>> tables = (Map<String, List<Map<String, Object>>>) parsedMessage.get(2);
+        return (List<Map<String, Object>>) tables.get("tables").get(0).get("result");
+    }
+
+    public static String format(Date date) {
+        DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+        return dateFormat.format(date);
     }
 }

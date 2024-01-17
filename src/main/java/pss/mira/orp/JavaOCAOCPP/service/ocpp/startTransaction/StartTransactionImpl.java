@@ -45,26 +45,30 @@ public class StartTransactionImpl implements StartTransaction {
     public void sendStartTransaction(List<Object> parsedMessage) {
         String consumer = parsedMessage.get(0).toString();
         String requestUuid = parsedMessage.get(1).toString();
-        Map<String, Object> startTransactionMap = (Map<String, Object>) parsedMessage.get(3);
-        int connectorId = Integer.parseInt(startTransactionMap.get("connectorId").toString());
-        String idTag = startTransactionMap.get("idTag").toString();
-
-        ClientCoreProfile core = handler.getCore();
-        JSONClient client = bootNotification.getClient();
-
-        // Use the feature profile to help create event
-        Request request = core.createStartTransactionRequest(
-                connectorId, idTag, connectorsInfoCache.getMeterValue(connectorId, CONNECTOR), ZonedDateTime.now()
-        );
-
-        // Client returns a promise which will be filled once it receives a confirmation.
         try {
-            client.send(request).whenComplete((confirmation, ex) -> {
-                log.info("Received from the central system: " + confirmation.toString());
-                handleResponse(consumer, requestUuid, confirmation);
-            });
-        } catch (OccurenceConstraintException | UnsupportedFeatureException ignored) {
-            log.warn("An error occurred while sending or processing authorize request");
+            Map<String, Object> startTransactionMap = (Map<String, Object>) parsedMessage.get(3);
+            int connectorId = Integer.parseInt(startTransactionMap.get("connectorId").toString());
+            String idTag = startTransactionMap.get("idTag").toString();
+
+            ClientCoreProfile core = handler.getCore();
+            JSONClient client = bootNotification.getClient();
+
+            // Use the feature profile to help create event
+            Request request = core.createStartTransactionRequest(
+                    connectorId, idTag, connectorsInfoCache.getMeterValue(connectorId, CONNECTOR), ZonedDateTime.now()
+            );
+
+            // Client returns a promise which will be filled once it receives a confirmation.
+            try {
+                client.send(request).whenComplete((confirmation, ex) -> {
+                    log.info("Received from the central system: " + confirmation.toString());
+                    handleResponse(consumer, requestUuid, confirmation);
+                });
+            } catch (OccurenceConstraintException | UnsupportedFeatureException ignored) {
+                log.warn("An error occurred while sending or processing start transaction request");
+            }
+        } catch (Exception ignored) {
+            log.error("An error occurred while receiving start transaction data from the message");
         }
     }
 

@@ -4,5 +4,6 @@ public enum DBKeys {
     changeConfiguration,
     config_zs,
     configuration,
-    getConfiguration
+    getConfiguration,
+    MeterValuesSampledData
 }

@@ -1,6 +1,5 @@
 package pss.mira.orp.JavaOCAOCPP.service.rabbit.listener;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.EnableRabbit;
@@ -13,6 +12,7 @@ import pss.mira.orp.JavaOCAOCPP.service.ocpp.authorize.Authorize;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.dataTransfer.DataTransfer;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.Handler;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.meterValues.MeterValues;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.startTransaction.StartTransaction;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.statusNotification.StatusNotification;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.stopTransaction.StopTransaction;
@@ -20,6 +20,7 @@ import pss.mira.orp.JavaOCAOCPP.service.ocpp.stopTransaction.StopTransaction;
 import java.util.List;
 import java.util.Map;
 
+import static eu.chargetime.ocpp.model.core.ChargePointStatus.Charging;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.ChangeAvailability;
 
 @EnableRabbit
@@ -31,6 +32,7 @@ public class ListenerImpl implements Listener {
     private final ConnectorsInfoCache connectorsInfoCache;
     private final DataTransfer dataTransfer;
     private final Handler handler;
+    private final MeterValues meterValues;
     private final RequestCache requestCache;
     private final StartTransaction startTransaction;
     private final StatusNotification statusNotification;
@@ -43,6 +45,7 @@ public class ListenerImpl implements Listener {
             ConnectorsInfoCache connectorsInfoCache,
             DataTransfer dataTransfer,
             Handler handler,
+            MeterValues meterValues,
             RequestCache requestCache,
             StartTransaction startTransaction,
             StatusNotification statusNotification,
@@ -53,6 +56,7 @@ public class ListenerImpl implements Listener {
         this.connectorsInfoCache = connectorsInfoCache;
         this.dataTransfer = dataTransfer;
         this.handler = handler;
+        this.meterValues = meterValues;
         this.requestCache = requestCache;
         this.startTransaction = startTransaction;
         this.statusNotification = statusNotification;
@@ -120,7 +124,7 @@ public class ListenerImpl implements Listener {
                 log.error("Error when parsing a message from the broker. The length of the message must be 3 for the " +
                         "response and 4 for the request");
             }
-        } catch (JsonProcessingException e) {
+        } catch (Exception e) {
             log.error("Error when parsing a message from the broker");
         }
     }
@@ -145,9 +149,13 @@ public class ListenerImpl implements Listener {
             List<StatusNotificationRequest> possibleRequests = connectorsInfoCache.addToCache(parsedMessage);
             for (StatusNotificationRequest request : possibleRequests) {
                 statusNotification.sendStatusNotification(request);
+                if (request.getStatus().equals(Charging)) {
+                    meterValues.addToChargingConnectors(request.getId());
+                } else {
+                    meterValues.removeFromChargingConnectors(request.getId());
+                }
             }
-
-        } catch (JsonProcessingException e) {
+        } catch (Exception e) {
             log.error("Error when parsing a message from the broker");
         }
     }

@@ -6,7 +6,6 @@ import eu.chargetime.ocpp.model.core.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import pss.mira.orp.JavaOCAOCPP.models.requests.rabbit.DBTablesChangeRequest;
-import pss.mira.orp.JavaOCAOCPP.models.requests.rabbit.DBTablesGetRequest;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 
 import java.util.List;
@@ -18,6 +17,8 @@ import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.*;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.*;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Services.ModBus;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Services.bd;
+import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.getDBTablesGetRequest;
+import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.getResult;
 
 @Service
 @Slf4j
@@ -73,7 +74,7 @@ public class HandlerImpl implements Handler {
                         bd.name(),
                         UUID.randomUUID().toString(),
                         Get.name(),
-                        new DBTablesGetRequest(List.of(configuration.name())),
+                        getDBTablesGetRequest(List.of(configuration.name())),
                         getConfiguration.name()
                 );
                 while (true) {
@@ -141,7 +142,9 @@ public class HandlerImpl implements Handler {
             }
 
             @Override
-            public RemoteStartTransactionConfirmation handleRemoteStartTransactionRequest(RemoteStartTransactionRequest request) {
+            public RemoteStartTransactionConfirmation handleRemoteStartTransactionRequest(
+                    RemoteStartTransactionRequest request
+            ) {
 
                 log.info(request.toString());
                 // ... handle event
@@ -150,7 +153,9 @@ public class HandlerImpl implements Handler {
             }
 
             @Override
-            public RemoteStopTransactionConfirmation handleRemoteStopTransactionRequest(RemoteStopTransactionRequest request) {
+            public RemoteStopTransactionConfirmation handleRemoteStopTransactionRequest(
+                    RemoteStopTransactionRequest request
+            ) {
 
                 log.info(request.toString());
                 // ... handle event
@@ -203,31 +208,41 @@ public class HandlerImpl implements Handler {
 
     @Override
     public void setAvailabilityStatus(List<Object> parsedMessage) {
-        Map<String, String> map = (Map<String, String>) parsedMessage.get(2);
-        for (AvailabilityStatus statusFromEnum : AvailabilityStatus.values()) {
-            if (statusFromEnum.name().equals(map.get("ChangeAvailability"))) {
-                availabilityStatus = statusFromEnum;
-                break;
+        try {
+            Map<String, String> map = (Map<String, String>) parsedMessage.get(2);
+            for (AvailabilityStatus statusFromEnum : AvailabilityStatus.values()) {
+                if (statusFromEnum.name().equals(map.get("ChangeAvailability"))) {
+                    availabilityStatus = statusFromEnum;
+                    break;
+                }
             }
+        } catch (Exception ignored) {
+            log.error("An error occurred while receiving availabilityStatus from the message");
         }
     }
 
     @Override
     public void setConfigurationMap(List<Object> parsedMessage) {
-        Map<String, Map<String, List<Map<String, Object>>>> map =
-                (Map<String, Map<String, List<Map<String, Object>>>>) parsedMessage.get(2);
-        configurationList = map.get("tables").get(configuration.name());
+        try {
+            configurationList = getResult(parsedMessage);
+        } catch (Exception ignored) {
+            log.error("An error occurred while receiving configuration table from the message");
+        }
     }
 
     @Override
     public void setChangeConfigurationStatus(List<Object> parsedMessage) {
-        Map<String, String> map = (Map<String, String>) parsedMessage.get(2);
-        for (ConfigurationStatus configurationStatus : ConfigurationStatus.values()) {
-            if (configurationStatus.name().equals(map.get("result"))) {
-                changeConfigurationStatus = configurationStatus;
-                return;
+        try {
+            Map<String, String> map = (Map<String, String>) parsedMessage.get(2);
+            for (ConfigurationStatus configurationStatus : ConfigurationStatus.values()) {
+                if (configurationStatus.name().equals(map.get("result"))) {
+                    changeConfigurationStatus = configurationStatus;
+                    return;
+                }
             }
+        } catch (Exception ignored) {
+            log.error("An error occurred while receiving configuration change status from the message");
+            changeConfigurationStatus = NotSupported;
         }
-        changeConfigurationStatus = NotSupported;
     }
 }
