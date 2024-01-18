@@ -75,7 +75,7 @@ public class HandlerImpl implements Handler {
                         UUID.randomUUID().toString(),
                         Get.name(),
                         getDBTablesGetRequest(List.of(configuration.name())),
-                        getConfiguration.name()
+                        getConfigurationForHandler.name()
                 );
                 while (true) {
                     if (configurationList == null) {

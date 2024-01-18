@@ -21,8 +21,7 @@ public class ConnectorsInfoCacheImpl implements ConnectorsInfoCache {
     private final Map<Integer, Map<String, Object>> connectorsMap = new HashMap<>();
 
     /**
-     * Тестовый сын Джейсона для steve:
-     * [{"id":1,"errorCode":"NoError","status":"Available","meterValue":100,"transactionId":null},{"id":2,"errorCode":"NoError","status":"Available","meterValue":100,"transactionId":null},{"id":3,"errorCode":"NoError","status":"Available","meterValue":100,"transactionId":null}]
+     * [{"events":{"listeners":[]},"id":1,"slaveId":5,"status":"Available","error":"NoError","chargePointVendorError":"NoErrorVendor","errorCode":0,"UnavailableTime":0,"lastChargePointVendorError":"NoErrorVendor","timer":0,"startTimer":0,"timeoutButtonStartStop":0,"excessEnergy":0,"connected":false,"ev_requested_voltage":0.0,"ev_requested_current":0.0,"ev_requested_power":0,"lastTime":"Jan 18, 2024, 5:39:34 AM","lastConnectorStatus":"Available","startFlag":false,"limitCalc":0.0,"voltageFromPhases":220.0,"lastAmperage":0.0,"lastPower":0.0,"MaxDynamicPower":0.0,"MaxDynamicAmperage":0.0,"CounterDynamic":0,"rfidStartLocal":false,"rfidStart":false,"buttonStart":false,"ConnectorInsertedTime":0,"FalgConnectorInsertedTimeSend":false,"EVCCID":"","StartStopButtonPressed":false,"remoteStart":false,"StartFromButton":false,"sentPreparing":false,"errorMiraMeter":false,"reserved":false,"spamCount":0,"spamBlock":false,"timeLastStatusSending":"Jan 18, 2024, 5:39:34 AM","fullStationExternConsumedEnergy":0.0,"statusPrecharge":"NONE","emergencyButtonPressed":false,"openDoor":false,"mode3StopButtonPressed":false,"connectedToEV":false,"consumedEnergy":0,"percent":0,"chargingTime":0,"power":0.0,"currentAmperage":0.0,"currentVoltage":0,"remainingTime":0,"type":"GBT","minAmperage":0.0,"maxAmperage":155.0,"minPower":0.0,"maxPower":150.0,"minVoltage":0,"maxVoltage":0,"levelPWM":0,"statusPWM":"WAITING","wellPWM":0,"maxSessionAmperage":0.0,"maxSessionPower":0.0,"temperaturePwM":0,"availability":"Operative","fullStationConsumedEnergy":100,"CCSControllerVersion":0,"mapModulInfo":{"Модуль 1 ":["NO_ERROR"],"Модуль 2 ":["NO_ERROR"],"Модуль 3 ":["NO_ERROR"],"Модуль 4 ":["NO_ERROR"],"Модуль 5 ":["NO_ERROR"],"Модуль 6 ":["NO_ERROR"]},"stationInfo":[],"mapTemperatureCmInfo":{"Модуль 1":0,"Модуль 2":0,"Модуль 3":0,"Модуль 4":0,"Модуль 5":0,"Модуль 6":0},"CCSControllerConfig":0,"CCSMatchingDeviceVersion":0}]
      */
     @Override
     public List<StatusNotificationRequest> addToCache(List<Map<String, Object>> connectorsInfo) {
@@ -30,24 +29,24 @@ public class ConnectorsInfoCacheImpl implements ConnectorsInfoCache {
         if (!connectorsMap.isEmpty()) {
             for (Map<String, Object> map : connectorsInfo) {
                 int id = Integer.parseInt(map.get("id").toString());
-                String newErrorCode = map.get("errorCode").toString();
+                String newError = map.get("error").toString();
                 String newStatus = map.get("status").toString();
 
                 Map<String, Object> mapFromCache = connectorsMap.get(id);
-                String oldErrorCode = mapFromCache.get("errorCode").toString();
+                String oldError = mapFromCache.get("error").toString();
                 String oldStatus = mapFromCache.get("status").toString();
 
-                if (!newErrorCode.equals(oldErrorCode) || !newStatus.equals(oldStatus)) {
-                    addToResult(newErrorCode, newStatus, result, id);
+                if (!newError.equals(oldError) || !newStatus.equals(oldStatus)) {
+                    addToResult(newError, newStatus, result, id);
                 }
             }
             connectorsMap.clear();
         } else {
             for (Map<String, Object> map : connectorsInfo) {
                 int id = Integer.parseInt(map.get("id").toString());
-                String newErrorCode = map.get("errorCode").toString();
+                String newError = map.get("error").toString();
                 String newStatus = map.get("status").toString();
-                addToResult(newErrorCode, newStatus, result, id);
+                addToResult(newError, newStatus, result, id);
             }
         }
         for (Map<String, Object> map : connectorsInfo) {
@@ -57,8 +56,8 @@ public class ConnectorsInfoCacheImpl implements ConnectorsInfoCache {
         return result;
     }
 
-    private void addToResult(String newErrorCode, String newStatus, List<StatusNotificationRequest> result, int id) {
-        ChargePointErrorCode parsedCode = getErrorCode(newErrorCode);
+    private void addToResult(String newError, String newStatus, List<StatusNotificationRequest> result, int id) {
+        ChargePointErrorCode parsedCode = getErrorCode(newError);
         ChargePointStatus parsedStatus = getChargePointStatus(newStatus);
         if ((parsedCode != null) && (parsedStatus != null)) {
             result.add(new StatusNotificationRequest(id, parsedCode, parsedStatus));

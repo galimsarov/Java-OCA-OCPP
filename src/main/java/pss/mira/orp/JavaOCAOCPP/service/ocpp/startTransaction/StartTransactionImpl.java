@@ -31,7 +31,9 @@ public class StartTransactionImpl implements StartTransaction {
     private final Handler handler;
     private final Sender sender;
 
-    public StartTransactionImpl(BootNotification bootNotification, ConnectorsInfoCache connectorsInfoCache, Handler handler, Sender sender) {
+    public StartTransactionImpl(
+            BootNotification bootNotification, ConnectorsInfoCache connectorsInfoCache, Handler handler, Sender sender
+    ) {
         this.bootNotification = bootNotification;
         this.connectorsInfoCache = connectorsInfoCache;
         this.handler = handler;

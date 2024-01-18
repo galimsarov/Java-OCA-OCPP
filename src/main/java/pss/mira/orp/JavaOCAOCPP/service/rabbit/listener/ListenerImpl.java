@@ -80,8 +80,11 @@ public class ListenerImpl implements Listener {
                             case ("config_zs"):
                                 sendBootNotification(parsedMessage);
                                 break;
-                            case ("getConfiguration"):
+                            case ("getConfigurationForHandler"):
                                 handler.setConfigurationMap(parsedMessage);
+                                break;
+                            case ("getConfigurationForMeterValues"):
+                                meterValues.setConfigurationMap(parsedMessage);
                                 break;
                             case ("changeConfiguration"):
                                 handler.setChangeConfigurationStatus(parsedMessage);
