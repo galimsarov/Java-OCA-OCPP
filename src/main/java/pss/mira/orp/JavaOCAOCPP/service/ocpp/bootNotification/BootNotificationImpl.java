@@ -1,5 +1,6 @@
 package pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification;
 
+import eu.chargetime.ocpp.ClientEvents;
 import eu.chargetime.ocpp.JSONClient;
 import eu.chargetime.ocpp.OccurenceConstraintException;
 import eu.chargetime.ocpp.UnsupportedFeatureException;
@@ -65,7 +66,33 @@ public class BootNotificationImpl implements BootNotification {
 
             ClientCoreProfile core = handler.getCore();
             JSONClient jsonClient = new JSONClient(core, bootNotificationRequest.getChargePointID());
-            jsonClient.connect(bootNotificationRequest.getAddressCP(), null);
+
+            final boolean[] connectionOpened = {false};
+            while (true) {
+                jsonClient.connect(bootNotificationRequest.getAddressCP(), new ClientEvents() {
+                    @Override
+                    public void connectionOpened() {
+                        log.info("Connection to the central system is established");
+                        connectionOpened[0] = true;
+                    }
+
+                    @Override
+                    public void connectionClosed() {
+                        log.warn("The connection to the central system has not been established. " +
+                                "Another try will be made");
+                        connectionOpened[0] = false;
+                    }
+                });
+                if (connectionOpened[0]) {
+                    break;
+                } else {
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        log.error("An error while waiting to connect to the central system");
+                    }
+                }
+            }
             client = jsonClient;
 
             // Use the feature profile to help create event
