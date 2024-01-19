@@ -58,6 +58,10 @@ public class DataTransferImpl implements DataTransfer {
             ClientCoreProfile core = handler.getCore();
             JSONClient client = bootNotification.getClient();
 
+            if (client == null) {
+
+            }
+
             // Use the feature profile to help create event
             DataTransferRequest request = core.createDataTransferRequest(vendorId);
             if (messageId != null) {

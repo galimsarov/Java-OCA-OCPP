@@ -85,8 +85,7 @@ public class HandlerImpl implements Handler {
                             log.error("Аn error while waiting for a get configuration response");
                         }
                     } else {
-                        GetConfigurationConfirmation result =
-                                getGetConfigurationConfirmation(request, configurationList);
+                        GetConfigurationConfirmation result = getGetConfigurationConfirmation(request);
                         log.info("Send to the central system: " + result);
                         configurationList = null;
                         return result;
@@ -183,9 +182,7 @@ public class HandlerImpl implements Handler {
         });
     }
 
-    private GetConfigurationConfirmation getGetConfigurationConfirmation(
-            GetConfigurationRequest request, List<Map<String, Object>> configurationList
-    ) {
+    private GetConfigurationConfirmation getGetConfigurationConfirmation(GetConfigurationRequest request) {
         KeyValueType[] keyValueTypeArray = new KeyValueType[request.getKey().length];
         for (int i = 0; i < keyValueTypeArray.length; i++) {
             String key = request.getKey()[i];

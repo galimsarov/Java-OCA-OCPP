@@ -4,6 +4,10 @@ import eu.chargetime.ocpp.model.core.IdTagInfo;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 public class Utils {
@@ -33,5 +37,15 @@ public class Utils {
     public static String format(Date date) {
         DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
         return dateFormat.format(date);
+    }
+
+    public static ZonedDateTime getZoneDateTimeFromAuth(String timeFromDB) {
+        if (timeFromDB == null) {
+            return null;
+        } else {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+            LocalDateTime dateTime = LocalDateTime.parse(timeFromDB, formatter);
+            return ZonedDateTime.of(dateTime, ZoneId.of("UTC"));
+        }
     }
 }

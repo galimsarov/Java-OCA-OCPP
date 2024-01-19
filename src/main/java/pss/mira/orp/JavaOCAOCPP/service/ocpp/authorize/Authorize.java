@@ -4,4 +4,6 @@ import java.util.List;
 
 public interface Authorize {
     void sendAuthorize(List<Object> parsedMessage);
+
+    void setAuthMap(List<Object> parsedMessage);
 }

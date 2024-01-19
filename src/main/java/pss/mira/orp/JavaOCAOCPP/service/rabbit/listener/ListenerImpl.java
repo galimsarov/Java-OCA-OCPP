@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.Map;
 
 import static eu.chargetime.ocpp.model.core.ChargePointStatus.Charging;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.ChangeAvailability;
 
 @EnableRabbit
 @Component
@@ -77,6 +76,9 @@ public class ListenerImpl implements Listener {
                     if (cashedRequest != null) {
                         // запрос в кэше найден
                         switch (cashedRequest.get(4).toString()) {
+                            case ("auth_list"):
+                                authorize.setAuthMap(parsedMessage);
+                                break;
                             case ("config_zs"):
                                 sendBootNotification(parsedMessage);
                                 break;
@@ -90,17 +92,8 @@ public class ListenerImpl implements Listener {
                                 handler.setChangeConfigurationStatus(parsedMessage);
                                 break;
                             case ("ChangeAvailability"):
-                                // чтобы не было циклических зависимостей отправку StatusNotification делаем здесь
-                                int connectorId = requestCache.getConnectorId(
-                                        parsedMessage.get(1).toString(), ChangeAvailability.name()
-                                );
-                                if (connectorId != -1) {
-                                    StatusNotificationRequest statusNotificationRequest =
-                                            connectorsInfoCache.getStatusNotificationRequest(connectorId);
-                                    statusNotification.sendStatusNotification(statusNotificationRequest);
-                                }
-                                // здесь добавляем полученное значение из очереди, благодаря которому уйдёт ответ в ЦС
-                                // на запрос по смене статуса
+                                // здесь была отправка Status Notification, но она обрабатывается отдельно в очереди
+                                // connectorsInfo
                                 handler.setAvailabilityStatus(parsedMessage);
                                 break;
                         }
@@ -133,14 +126,8 @@ public class ListenerImpl implements Listener {
     }
 
     private void sendBootNotification(List<Object> parsedMessage) {
-            while (connectorsInfoCache.isEmpty()) {
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    log.error("Error while waiting for the connectors info");
-                }
-            }
-            bootNotification.sendBootNotification(parsedMessage);
+        Thread sendBootNotificationThread = new Thread(() -> bootNotification.sendBootNotification(parsedMessage));
+        sendBootNotificationThread.start();
     }
 
     @Override
@@ -151,7 +138,11 @@ public class ListenerImpl implements Listener {
             List<Map<String, Object>> parsedMessage = objectMapper.readValue(message, List.class);
             List<StatusNotificationRequest> possibleRequests = connectorsInfoCache.addToCache(parsedMessage);
             for (StatusNotificationRequest request : possibleRequests) {
-                statusNotification.sendStatusNotification(request);
+                if (bootNotification.getClient() == null) {
+                    log.warn("There is no connection to the central system. Can't send a status notification");
+                } else {
+                    statusNotification.sendStatusNotification(request);
+                }
                 if (request.getStatus().equals(Charging)) {
                     meterValues.addToChargingConnectors(request.getId());
                 } else {

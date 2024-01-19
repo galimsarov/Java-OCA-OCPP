@@ -6,6 +6,7 @@ import eu.chargetime.ocpp.UnsupportedFeatureException;
 import eu.chargetime.ocpp.feature.profile.ClientCoreProfile;
 import eu.chargetime.ocpp.model.Confirmation;
 import eu.chargetime.ocpp.model.Request;
+import eu.chargetime.ocpp.model.core.AuthorizationStatus;
 import eu.chargetime.ocpp.model.core.AuthorizeConfirmation;
 import eu.chargetime.ocpp.model.core.IdTagInfo;
 import lombok.extern.slf4j.Slf4j;
@@ -17,12 +18,18 @@ import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
-import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.getIdTagInfoMap;
+import static eu.chargetime.ocpp.model.core.AuthorizationStatus.Invalid;
+import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.Get;
+import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.auth_list;
+import static pss.mira.orp.JavaOCAOCPP.models.enums.Services.bd;
+import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.*;
 
 @Service
 @Slf4j
 public class AuthorizeImpl implements Authorize {
+    private List<Map<String, Object>> authList = null;
     private final BootNotification bootNotification;
     private final Handler handler;
     private final Sender sender;
@@ -52,21 +59,88 @@ public class AuthorizeImpl implements Authorize {
             ClientCoreProfile core = handler.getCore();
             JSONClient client = bootNotification.getClient();
 
-            // Use the feature profile to help create event
-            Request request = core.createAuthorizeRequest(idTag);
-
-            // Client returns a promise which will be filled once it receives a confirmation.
-            try {
-                client.send(request).whenComplete((confirmation, ex) -> {
-                    log.info("Received from the central system: " + confirmation.toString());
-                    handleResponse(consumer, requestUuid, confirmation);
-                });
-            } catch (OccurenceConstraintException | UnsupportedFeatureException ignored) {
-                log.warn("An error occurred while sending or processing authorize request");
+            if (client == null) {
+                log.warn("There is no connection to the central system. Auth list is used for authorization");
+                checkAuthWithDB(idTag, consumer, requestUuid);
+            } else {
+                // Use the feature profile to help create event
+                Request request = core.createAuthorizeRequest(idTag);
+                // Client returns a promise which will be filled once it receives a confirmation.
+                try {
+                    client.send(request).whenComplete((confirmation, ex) -> {
+                        log.info("Received from the central system: " + confirmation.toString());
+                        handleResponse(consumer, requestUuid, confirmation);
+                    });
+                } catch (OccurenceConstraintException | UnsupportedFeatureException ignored) {
+                    log.warn("An error occurred while sending or processing authorize request");
+                }
             }
         } catch (Exception ignored) {
             log.error("An error occurred while receiving idTag from the message");
         }
+    }
+
+    @Override
+    public void setAuthMap(List<Object> parsedMessage) {
+        try {
+            authList = getResult(parsedMessage);
+        } catch (Exception ignored) {
+            log.error("An error occurred while receiving auth table from the message");
+        }
+    }
+
+    private void checkAuthWithDB(String idTag, String consumer, String requestUuid) {
+        sender.sendRequestToQueue(
+                bd.name(),
+                UUID.randomUUID().toString(),
+                Get.name(),
+                getDBTablesGetRequest(List.of(auth_list.name())),
+                auth_list.name()
+        );
+        while (true) {
+            if (authList == null) {
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    log.error("Аn error while waiting for a get auth_list response");
+                }
+            } else {
+                AuthorizeConfirmation confirmation = getAuthorizeConfirmation(idTag);
+                authList = null;
+                handleResponse(consumer, requestUuid, confirmation);
+            }
+        }
+    }
+
+    private AuthorizeConfirmation getAuthorizeConfirmation(String idTag) {
+        // AuthorizeConfirmation{idTagInfo=IdTagInfo{expiryDate="2024-01-18T12:35:20.476Z", parentIdTag=New, status=Accepted}, isValid=true}
+        Map<String, Object> authMap = new HashMap<>();
+        for (Map<String, Object> map : authList) {
+            String bdIdTag = map.get("id_tag").toString();
+            if (bdIdTag.equals(idTag)) {
+                authMap = map;
+                break;
+            }
+        }
+        IdTagInfo idTagInfo = new IdTagInfo(Invalid);
+        if (authMap.isEmpty()) {
+            idTagInfo = new IdTagInfo(Invalid);
+        } else {
+            boolean enumContainsIdTag = false;
+            for (AuthorizationStatus enumStatus : AuthorizationStatus.values()) {
+                if (enumStatus.name().equals(authMap.get("status").toString())) {
+                    idTagInfo = new IdTagInfo(enumStatus);
+                    enumContainsIdTag = true;
+                    idTagInfo.setExpiryDate(getZoneDateTimeFromAuth(authMap.get("expiry_date").toString()));
+                    idTagInfo.setParentIdTag(authMap.get("parent_id_tag").toString());
+                    break;
+                }
+            }
+            if (!enumContainsIdTag) {
+                idTagInfo = new IdTagInfo(Invalid);
+            }
+        }
+        return new AuthorizeConfirmation(idTagInfo);
     }
 
     private void handleResponse(String consumer, String requestUuid, Confirmation confirmation) {
