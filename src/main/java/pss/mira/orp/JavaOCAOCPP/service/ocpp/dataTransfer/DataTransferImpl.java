@@ -59,26 +59,28 @@ public class DataTransferImpl implements DataTransfer {
             JSONClient client = bootNotification.getClient();
 
             if (client == null) {
+                log.warn("There is no connection to the central system. " +
+                        "The data transfer message will be sent after the connection is restored");
+                // TODO предусмотреть кэш для отправки сообщений после появления связи
+            } else {
+                // Use the feature profile to help create event
+                DataTransferRequest request = core.createDataTransferRequest(vendorId);
+                if (messageId != null) {
+                    request.setMessageId(messageId);
+                }
+                if (data != null) {
+                    request.setData(data);
+                }
 
-            }
-
-            // Use the feature profile to help create event
-            DataTransferRequest request = core.createDataTransferRequest(vendorId);
-            if (messageId != null) {
-                request.setMessageId(messageId);
-            }
-            if (data != null) {
-                request.setData(data);
-            }
-
-            // Client returns a promise which will be filled once it receives a confirmation.
-            try {
-                client.send(request).whenComplete((confirmation, ex) -> {
-                    log.info("Received from the central system: " + confirmation.toString());
-                    handleResponse(consumer, requestUuid, confirmation);
-                });
-            } catch (OccurenceConstraintException | UnsupportedFeatureException ignored) {
-                log.warn("An error occurred while sending or processing authorize request");
+                // Client returns a promise which will be filled once it receives a confirmation.
+                try {
+                    client.send(request).whenComplete((confirmation, ex) -> {
+                        log.info("Received from the central system: " + confirmation.toString());
+                        handleResponse(consumer, requestUuid, confirmation);
+                    });
+                } catch (OccurenceConstraintException | UnsupportedFeatureException ignored) {
+                    log.warn("An error occurred while sending or processing authorize request");
+                }
             }
         } catch (Exception ignored) {
             log.error("An error occurred while receiving vendorId from the message");

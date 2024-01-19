@@ -50,19 +50,25 @@ public class StopTransactionImpl implements StopTransaction {
             ClientCoreProfile core = handler.getCore();
             JSONClient client = bootNotification.getClient();
 
-            // Use the feature profile to help create event
-            Request request = core.createStopTransactionRequest(
-                    connectorsInfoCache.getMeterValue(transactionId, TRANSACTION), ZonedDateTime.now(), transactionId
-            );
+            if (client == null) {
+                log.warn("There is no connection to the central system. " +
+                        "The stop transaction message will be sent after the connection is restored");
+                // TODO предусмотреть кэш для отправки сообщений после появления связи
+            } else {
+                // Use the feature profile to help create event
+                Request request = core.createStopTransactionRequest(
+                        connectorsInfoCache.getMeterValue(transactionId, TRANSACTION), ZonedDateTime.now(), transactionId
+                );
 
-            // Client returns a promise which will be filled once it receives a confirmation.
-            try {
-                client.send(request).whenComplete((confirmation, ex) -> {
-                    log.info("Received from the central system: " + confirmation);
-                    handleResponse(consumer, requestUuid, confirmation);
-                });
-            } catch (OccurenceConstraintException | UnsupportedFeatureException ignored) {
-                log.warn("An error occurred while sending or processing stop transaction request");
+                // Client returns a promise which will be filled once it receives a confirmation.
+                try {
+                    client.send(request).whenComplete((confirmation, ex) -> {
+                        log.info("Received from the central system: " + confirmation);
+                        handleResponse(consumer, requestUuid, confirmation);
+                    });
+                } catch (OccurenceConstraintException | UnsupportedFeatureException ignored) {
+                    log.warn("An error occurred while sending or processing stop transaction request");
+                }
             }
         } catch (Exception ignored) {
             log.error("An error occurred while receiving stop transaction data from the message");
