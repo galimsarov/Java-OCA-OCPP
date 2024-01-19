@@ -43,7 +43,7 @@ public class AuthorizeImpl implements Authorize {
     /**
      * Отправляет запрос на авторизацию в ЦС
      * @param parsedMessage запрос от сервиса в формате:
-     * ["myQueue1","71f599b2-b3f0-4680-b447-ae6d6dc0cc0c","Authorize",{"idTag":"New"}]
+     * ["myQueue1","71f599b2-b3f0-4680-b447-ae6d6dc0cc0c","Authorize",{"idTag":"button1"}]
      * Формат ответа от steve:
      * AuthorizeConfirmation{idTagInfo=IdTagInfo{expiryDate="2024-01-10T11:12:02.925Z", parentIdTag=null, status=Accepted}, isValid=true}
      */
@@ -97,19 +97,23 @@ public class AuthorizeImpl implements Authorize {
                 getDBTablesGetRequest(List.of(auth_list.name())),
                 auth_list.name()
         );
-        while (true) {
-            if (authList == null) {
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    log.error("Аn error while waiting for a get auth_list response");
+        Runnable authListResponseTask = () -> {
+            while (true) {
+                if (authList == null) {
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        log.error("Аn error while waiting for a get auth_list response");
+                    }
+                } else {
+                    AuthorizeConfirmation confirmation = getAuthorizeConfirmation(idTag);
+                    authList = null;
+                    handleResponse(consumer, requestUuid, confirmation);
                 }
-            } else {
-                AuthorizeConfirmation confirmation = getAuthorizeConfirmation(idTag);
-                authList = null;
-                handleResponse(consumer, requestUuid, confirmation);
             }
-        }
+        };
+        Thread thread = new Thread(authListResponseTask);
+        thread.start();
     }
 
     private AuthorizeConfirmation getAuthorizeConfirmation(String idTag) {
@@ -131,8 +135,16 @@ public class AuthorizeImpl implements Authorize {
                 if (enumStatus.name().equals(authMap.get("status").toString())) {
                     idTagInfo = new IdTagInfo(enumStatus);
                     enumContainsIdTag = true;
-                    idTagInfo.setExpiryDate(getZoneDateTimeFromAuth(authMap.get("expiry_date").toString()));
-                    idTagInfo.setParentIdTag(authMap.get("parent_id_tag").toString());
+                    if (authMap.get("expiry_date") == null) {
+                        idTagInfo.setExpiryDate(null);
+                    } else {
+                        idTagInfo.setExpiryDate(getZoneDateTimeFromAuth(authMap.get("expiry_date").toString()));
+                    }
+                    if (authMap.get("parent_id_tag") == null) {
+                        idTagInfo.setParentIdTag(null);
+                    } else {
+                        idTagInfo.setParentIdTag(authMap.get("parent_id_tag").toString());
+                    }
                     break;
                 }
             }

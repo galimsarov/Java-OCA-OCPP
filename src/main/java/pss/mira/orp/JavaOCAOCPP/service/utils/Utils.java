@@ -13,9 +13,17 @@ import java.util.*;
 public class Utils {
     public static Map<String, String> getIdTagInfoMap(IdTagInfo idTagInfo) {
         Map<String, String> idTagInfoMap = new HashMap<>();
-        idTagInfoMap.put("expiryDate", idTagInfo.getExpiryDate().toString());
+        try {
+            idTagInfoMap.put("expiryDate", idTagInfo.getExpiryDate().toString());
+        } catch (Exception ignored) {
+            idTagInfoMap.put("expiryDate", null);
+        }
         idTagInfoMap.put("parentIdTag", idTagInfo.getParentIdTag());
-        idTagInfoMap.put("status", idTagInfo.getStatus().toString());
+        try {
+            idTagInfoMap.put("status", idTagInfo.getStatus().toString());
+        } catch (Exception ignored) {
+
+        }
         return idTagInfoMap;
     }
 
