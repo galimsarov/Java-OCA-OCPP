@@ -4,7 +4,6 @@ import eu.chargetime.ocpp.model.core.ChargePointErrorCode;
 import eu.chargetime.ocpp.model.core.ChargePointStatus;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import pss.mira.orp.JavaOCAOCPP.models.enums.IdType;
 import pss.mira.orp.JavaOCAOCPP.models.requests.ocpp.StatusNotificationRequest;
 
 import java.util.ArrayList;
@@ -13,7 +12,6 @@ import java.util.List;
 import java.util.Map;
 
 import static pss.mira.orp.JavaOCAOCPP.models.enums.ConnectorStatus.Charging;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.IdType.TRANSACTION;
 
 @Service
 @Slf4j
@@ -21,7 +19,7 @@ public class ConnectorsInfoCacheImpl implements ConnectorsInfoCache {
     private final Map<Integer, Map<String, Object>> connectorsMap = new HashMap<>();
 
     /**
-     * [{"events":{"listeners":[]},"id":1,"slaveId":5,"status":"Available","error":"NoError","chargePointVendorError":"NoErrorVendor","errorCode":0,"UnavailableTime":0,"lastChargePointVendorError":"NoErrorVendor","timer":0,"startTimer":0,"timeoutButtonStartStop":0,"excessEnergy":0,"connected":false,"ev_requested_voltage":0.0,"ev_requested_current":0.0,"ev_requested_power":0,"lastTime":"Jan 18, 2024, 5:39:34 AM","lastConnectorStatus":"Available","startFlag":false,"limitCalc":0.0,"voltageFromPhases":220.0,"lastAmperage":0.0,"lastPower":0.0,"MaxDynamicPower":0.0,"MaxDynamicAmperage":0.0,"CounterDynamic":0,"rfidStartLocal":false,"rfidStart":false,"buttonStart":false,"ConnectorInsertedTime":0,"FalgConnectorInsertedTimeSend":false,"EVCCID":"","StartStopButtonPressed":false,"remoteStart":false,"StartFromButton":false,"sentPreparing":false,"errorMiraMeter":false,"reserved":false,"spamCount":0,"spamBlock":false,"timeLastStatusSending":"Jan 18, 2024, 5:39:34 AM","fullStationExternConsumedEnergy":0.0,"statusPrecharge":"NONE","emergencyButtonPressed":false,"openDoor":false,"mode3StopButtonPressed":false,"connectedToEV":false,"consumedEnergy":0,"percent":0,"chargingTime":0,"power":0.0,"currentAmperage":0.0,"currentVoltage":0,"remainingTime":0,"type":"GBT","minAmperage":0.0,"maxAmperage":155.0,"minPower":0.0,"maxPower":150.0,"minVoltage":0,"maxVoltage":0,"levelPWM":0,"statusPWM":"WAITING","wellPWM":0,"maxSessionAmperage":0.0,"maxSessionPower":0.0,"temperaturePwM":0,"availability":"Operative","fullStationConsumedEnergy":100,"CCSControllerVersion":0,"mapModulInfo":{"Модуль 1 ":["NO_ERROR"],"Модуль 2 ":["NO_ERROR"],"Модуль 3 ":["NO_ERROR"],"Модуль 4 ":["NO_ERROR"],"Модуль 5 ":["NO_ERROR"],"Модуль 6 ":["NO_ERROR"]},"stationInfo":[],"mapTemperatureCmInfo":{"Модуль 1":0,"Модуль 2":0,"Модуль 3":0,"Модуль 4":0,"Модуль 5":0,"Модуль 6":0},"CCSControllerConfig":0,"CCSMatchingDeviceVersion":0}]
+     * [{"events":{"listeners":[]},"id":1,"slaveId":5,"status":"Available","error":"NoError","chargePointVendorError":"NoErrorVendor","errorCode":0,"UnavailableTime":0,"lastChargePointVendorError":"NoErrorVendor","timer":0,"startTimer":0,"timeoutButtonStartStop":0,"excessEnergy":0,"connected":false,"ev_requested_voltage":0.0,"ev_requested_current":0.0,"ev_requested_power":0,"lastTime":"Jan 18, 2024, 5:39:34 AM","lastConnectorStatus":"Available","startFlag":false,"limitCalc":0.0,"voltageFromPhases":220.0,"lastAmperage":0.0,"lastPower":0.0,"MaxDynamicPower":0.0,"MaxDynamicAmperage":0.0,"CounterDynamic":0,"rfidStartLocal":false,"rfidStart":false,"buttonStart":false,"ConnectorInsertedTime":0,"FalgConnectorInsertedTimeSend":false,"EVCCID":"","StartStopButtonPressed":false,"remoteStart":false,"StartFromButton":false,"sentPreparing":false,"errorMiraMeter":false,"reserved":false,"spamCount":0,"spamBlock":false,"timeLastStatusSending":"Jan 18, 2024, 5:39:34 AM","fullStationExternConsumedEnergy":0.0,"statusPrecharge":"NONE","emergencyButtonPressed":false,"openDoor":false,"mode3StopButtonPressed":false,"connectedToEV":false,"consumedEnergy":0,"percent":0,"chargingTime":0,"power":0.0,"currentAmperage":0.0,"currentVoltage":0,"remainingTime":0,"type":"GBT","minAmperage":0.0,"maxAmperage":155.0,"minPower":0.0,"maxPower":150.0,"minVoltage":0,"maxVoltage":0,"levelPWM":0,"statusPWM":"WAITING","wellPWM":0,"maxSessionAmperage":0.0,"maxSessionPower":0.0,"temperaturePwM":0,"availability":"Operative","fullStationConsumedEnergy":100,"CCSControllerVersion":0,"mapModulInfo":{"Модуль 1 ":["NO_ERROR"],"Модуль 2 ":["NO_ERROR"],"Модуль 3 ":["NO_ERROR"],"Модуль 4 ":["NO_ERROR"],"Модуль 5 ":["NO_ERROR"],"Модуль 6 ":["NO_ERROR"]},"stationInfo":[],"mapTemperatureCmInfo":{"Модуль 1":0,"Модуль 2":0,"Модуль 3":0,"Модуль 4":0,"Модуль 5":0,"Модуль 6":0},"CCSControllerConfig":0,"CCSMatchingDeviceVersion":0,"fullStationConsumedEnergy":100}]
      */
     @Override
     public List<StatusNotificationRequest> addToCache(List<Map<String, Object>> connectorsInfo) {
@@ -112,18 +110,10 @@ public class ConnectorsInfoCacheImpl implements ConnectorsInfoCache {
     }
 
     /**
-     * Исходим из того, что значение счётчика будет: "meterValue":100
+     * Исходим из того, что значение счётчика будет: "fullStationConsumedEnergy":100
      */
     @Override
-    public int getMeterValue(int id, IdType idType) {
-        if (idType.equals(TRANSACTION)) {
-            for (Map.Entry<Integer, Map<String, Object>> entry : connectorsMap.entrySet()) {
-                Integer transactionId = (Integer) entry.getValue().get("transactionId");
-                if (transactionId != null && transactionId.equals(id)) {
-                    return Integer.parseInt(entry.getValue().get("meterValue").toString());
-                }
-            }
-        }
-        return Integer.parseInt(connectorsMap.get(id).get("meterValue").toString());
+    public int getFullStationConsumedEnergy(int id) {
+        return Integer.parseInt(connectorsMap.get(id).get("fullStationConsumedEnergy").toString());
     }
 }

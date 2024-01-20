@@ -6,29 +6,36 @@ import eu.chargetime.ocpp.model.core.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import pss.mira.orp.JavaOCAOCPP.models.requests.rabbit.DBTablesChangeRequest;
+import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import static eu.chargetime.ocpp.model.core.AuthorizationStatus.Accepted;
+import static eu.chargetime.ocpp.model.core.AuthorizationStatus.Invalid;
 import static eu.chargetime.ocpp.model.core.ConfigurationStatus.NotSupported;
+import static eu.chargetime.ocpp.model.core.RemoteStartStopStatus.Rejected;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.*;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.*;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Services.ModBus;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Services.bd;
+import static pss.mira.orp.JavaOCAOCPP.models.enums.Services.*;
 import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.getDBTablesGetRequest;
 import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.getResult;
 
 @Service
 @Slf4j
 public class HandlerImpl implements Handler {
+    private final ChargeSessionMap chargeSessionMap;
     private final Sender sender;
     private AvailabilityStatus availabilityStatus = null;
     private List<Map<String, Object>> configurationList = null;
     private ConfigurationStatus changeConfigurationStatus = null;
+    private AuthorizeConfirmation authorizeConfirmation = null;
+    private RemoteStartStopStatus remoteStartStatus = null;
 
-    public HandlerImpl(Sender sender) {
+    public HandlerImpl(ChargeSessionMap chargeSessionMap, Sender sender) {
+        this.chargeSessionMap = chargeSessionMap;
         this.sender = sender;
     }
 
@@ -93,6 +100,27 @@ public class HandlerImpl implements Handler {
                 }
             }
 
+            private GetConfigurationConfirmation getGetConfigurationConfirmation(GetConfigurationRequest request) {
+                KeyValueType[] keyValueTypeArray = new KeyValueType[request.getKey().length];
+                for (int i = 0; i < keyValueTypeArray.length; i++) {
+                    String key = request.getKey()[i];
+                    for (Map<String, Object> map : configurationList) {
+                        String mapKey = map.get("key").toString();
+                        if (key.equals(mapKey)) {
+                            boolean readonly = Boolean.parseBoolean(map.get("readonly").toString());
+                            String value = map.get("value").toString();
+                            KeyValueType keyValueType = new KeyValueType(key, readonly);
+                            keyValueType.setValue(value);
+                            keyValueTypeArray[i] = keyValueType;
+                            break;
+                        }
+                    }
+                }
+                GetConfigurationConfirmation result = new GetConfigurationConfirmation();
+                result.setConfigurationKey(keyValueTypeArray);
+                return result;
+            }
+
             @Override
             public ChangeConfigurationConfirmation handleChangeConfigurationRequest(
                     ChangeConfigurationRequest request
@@ -133,10 +161,7 @@ public class HandlerImpl implements Handler {
 
             @Override
             public DataTransferConfirmation handleDataTransferRequest(DataTransferRequest request) {
-
-                log.info(request.toString());
-                // ... handle event
-
+                log.info("Received from the central system: " + request.toString());
                 return null; // returning null means unsupported feature
             }
 
@@ -144,11 +169,91 @@ public class HandlerImpl implements Handler {
             public RemoteStartTransactionConfirmation handleRemoteStartTransactionRequest(
                     RemoteStartTransactionRequest request
             ) {
+                log.info("Received from the central system: " + request.toString());
+                sender.sendRequestToQueue(
+                        bd.name(),
+                        UUID.randomUUID().toString(),
+                        Get.name(),
+                        getDBTablesGetRequest(List.of(configuration.name())),
+                        getConfigurationForHandler.name()
+                );
+                while (true) {
+                    if (configurationList == null) {
+                        try {
+                            Thread.sleep(1000);
+                        } catch (InterruptedException e) {
+                            log.error("Аn error while waiting for a get configuration response");
+                        }
+                    } else {
+                        if (getAuthorizeRemoteTxRequests()) {
+                            // AuthorizeRemoteTxRequests в таблице configuration -> true
+                            log.info("IdTag is sent for authorization to the central system");
+                            sender.sendRequestToQueue(
+                                    ocpp.name(),
+                                    UUID.randomUUID().toString(),
+                                    Authorize.name(),
+                                    Map.of("idTag", request.getIdTag()),
+                                    Authorize.name()
+                            );
+                            while (true) {
+                                if (authorizeConfirmation == null) {
+                                    try {
+                                        Thread.sleep(1000);
+                                    } catch (InterruptedException e) {
+                                        log.error("Аn error while waiting for a authorize response from the central " +
+                                                "system");
+                                    }
+                                } else {
+                                    break;
+                                }
+                            }
+                            if (!authorizeConfirmation.getIdTagInfo().getStatus().equals(Accepted)) {
+                                authorizeConfirmation = null;
+                                log.warn("The central system tried to start a transaction with an unauthorized idTag");
+                                return new RemoteStartTransactionConfirmation(Rejected);
+                            }
+                        }
+                        authorizeConfirmation = null;
+                        configurationList = null;
+                        // ["ocpp","c29baee7-dfed-4160-9edc-1548693a0cdf","RemoteStartTransaction",{"connectorId":1,"idTag":"hhhh","chargingProfile":null}]
+                        sender.sendRequestToQueue(
+                                cp.name(),
+                                UUID.randomUUID().toString(),
+                                RemoteStartTransaction.name(),
+                                request,
+                                RemoteStartTransaction.name()
+                        );
+                        while (true) {
+                            if (remoteStartStatus == null) {
+                                try {
+                                    Thread.sleep(1000);
+                                } catch (InterruptedException e) {
+                                    log.error("Аn error while waiting for remote start transaction response");
+                                }
+                            } else {
+                                break;
+                            }
+                        }
+                        RemoteStartTransactionConfirmation result =
+                                new RemoteStartTransactionConfirmation(remoteStartStatus);
+                        if (remoteStartStatus.equals(RemoteStartStopStatus.Accepted)) {
+                            chargeSessionMap.addToChargeSessionMap(request.getConnectorId(), request.getIdTag());
+                        }
+                        remoteStartStatus = null;
+                        log.info("Sent to central system: " + result);
+                        return result;
+                    }
+                }
+            }
 
-                log.info(request.toString());
-                // ... handle event
-
-                return null; // returning null means unsupported feature
+            private boolean getAuthorizeRemoteTxRequests() {
+                for (Map<String, Object> map : configurationList) {
+                    String key = map.get("key").toString();
+                    if (key.equals("AuthorizeRemoteTxRequests")) {
+                        return Boolean.parseBoolean(map.get("value").toString());
+                    }
+                }
+                return false;
             }
 
             @Override
@@ -180,27 +285,6 @@ public class HandlerImpl implements Handler {
                 return null; // returning null means unsupported feature
             }
         });
-    }
-
-    private GetConfigurationConfirmation getGetConfigurationConfirmation(GetConfigurationRequest request) {
-        KeyValueType[] keyValueTypeArray = new KeyValueType[request.getKey().length];
-        for (int i = 0; i < keyValueTypeArray.length; i++) {
-            String key = request.getKey()[i];
-            for (Map<String, Object> map : configurationList) {
-                String mapKey = map.get("key").toString();
-                if (key.equals(mapKey)) {
-                    boolean readonly = Boolean.parseBoolean(map.get("readonly").toString());
-                    String value = map.get("value").toString();
-                    KeyValueType keyValueType = new KeyValueType(key, readonly);
-                    keyValueType.setValue(value);
-                    keyValueTypeArray[i] = keyValueType;
-                    break;
-                }
-            }
-        }
-        GetConfigurationConfirmation result = new GetConfigurationConfirmation();
-        result.setConfigurationKey(keyValueTypeArray);
-        return result;
     }
 
     @Override
@@ -240,6 +324,40 @@ public class HandlerImpl implements Handler {
         } catch (Exception ignored) {
             log.error("An error occurred while receiving configuration change status from the message");
             changeConfigurationStatus = NotSupported;
+        }
+    }
+
+    @Override
+    public void setAuthorizeConfirmation(List<Object> parsedMessage) {
+        try {
+            Map<String, Map<String, String>> idTagInfoMap = (Map<String, Map<String, String>>) parsedMessage.get(2);
+            String status = idTagInfoMap.get("idTagInfo").get("status");
+            for (AuthorizationStatus statusFromEnum : AuthorizationStatus.values()) {
+                if (statusFromEnum.name().equals(status)) {
+                    IdTagInfo idTagInfo = new IdTagInfo(Accepted);
+                    authorizeConfirmation = new AuthorizeConfirmation(idTagInfo);
+                    return;
+                }
+            }
+            IdTagInfo idTagInfo = new IdTagInfo(Invalid);
+            authorizeConfirmation = new AuthorizeConfirmation(idTagInfo);
+        } catch (Exception ignored) {
+            IdTagInfo idTagInfo = new IdTagInfo(Invalid);
+            authorizeConfirmation = new AuthorizeConfirmation(idTagInfo);
+        }
+    }
+
+    @Override
+    public void setRemoteStartStatus(List<Object> parsedMessage) {
+        try {
+            Map<String, String> remoteStartTransactionMap = (Map<String, String>) parsedMessage.get(2);
+            if (remoteStartTransactionMap.get("RemoteStartTransaction").equals(Accepted.toString())) {
+                remoteStartStatus = RemoteStartStopStatus.Accepted;
+            } else {
+                remoteStartStatus = RemoteStartStopStatus.Rejected;
+            }
+        } catch (Exception ignored) {
+            remoteStartStatus = RemoteStartStopStatus.Rejected;
         }
     }
 }

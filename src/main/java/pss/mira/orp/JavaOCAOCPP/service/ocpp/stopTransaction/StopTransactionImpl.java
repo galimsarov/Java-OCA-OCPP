@@ -8,6 +8,7 @@ import eu.chargetime.ocpp.model.Confirmation;
 import eu.chargetime.ocpp.model.Request;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.Handler;
@@ -17,24 +18,29 @@ import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 
-import static pss.mira.orp.JavaOCAOCPP.models.enums.IdType.TRANSACTION;
-
 @Service
 @Slf4j
 public class StopTransactionImpl implements StopTransaction {
     private final BootNotification bootNotification;
+    private final ChargeSessionMap chargeSessionMap;
     private final ConnectorsInfoCache connectorsInfoCache;
     private final Handler handler;
     private final Sender sender;
 
     public StopTransactionImpl(
-            BootNotification bootNotification, ConnectorsInfoCache connectorsInfoCache, Handler handler, Sender sender
+            BootNotification bootNotification,
+            ChargeSessionMap chargeSessionMap,
+            ConnectorsInfoCache connectorsInfoCache,
+            Handler handler,
+            Sender sender
     ) {
         this.bootNotification = bootNotification;
+        this.chargeSessionMap = chargeSessionMap;
         this.connectorsInfoCache = connectorsInfoCache;
         this.handler = handler;
         this.sender = sender;
     }
+
 
     /**
      * ["myQueue1","71f599b2-b3f0-4680-b447-ae6d6dc0cc0c","StopTransaction",{"transactionId":2682}]
@@ -56,18 +62,23 @@ public class StopTransactionImpl implements StopTransaction {
                 // TODO предусмотреть кэш для отправки сообщений после появления связи
             } else {
                 // Use the feature profile to help create event
-                Request request = core.createStopTransactionRequest(
-                        connectorsInfoCache.getMeterValue(transactionId, TRANSACTION), ZonedDateTime.now(), transactionId
-                );
+                Integer connectorId = chargeSessionMap.getConnectorId(transactionId);
+                if (connectorId == null) {
+                    log.error("transactionId " + transactionId + " is not in the charge session map");
+                } else {
+                    Request request = core.createStopTransactionRequest(
+                            connectorsInfoCache.getFullStationConsumedEnergy(connectorId), ZonedDateTime.now(), transactionId
+                    );
 
-                // Client returns a promise which will be filled once it receives a confirmation.
-                try {
-                    client.send(request).whenComplete((confirmation, ex) -> {
-                        log.info("Received from the central system: " + confirmation);
-                        handleResponse(consumer, requestUuid, confirmation);
-                    });
-                } catch (OccurenceConstraintException | UnsupportedFeatureException ignored) {
-                    log.warn("An error occurred while sending or processing stop transaction request");
+                    // Client returns a promise which will be filled once it receives a confirmation.
+                    try {
+                        client.send(request).whenComplete((confirmation, ex) -> {
+                            log.info("Received from the central system: " + confirmation);
+                            handleResponse(consumer, requestUuid, confirmation);
+                        });
+                    } catch (OccurenceConstraintException | UnsupportedFeatureException ignored) {
+                        log.warn("An error occurred while sending or processing stop transaction request");
+                    }
                 }
             }
         } catch (Exception ignored) {

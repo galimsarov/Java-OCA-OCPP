@@ -6,6 +6,7 @@ import org.springframework.amqp.rabbit.annotation.EnableRabbit;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 import pss.mira.orp.JavaOCAOCPP.models.requests.ocpp.StatusNotificationRequest;
+import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
 import pss.mira.orp.JavaOCAOCPP.service.cache.request.RequestCache;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.authorize.Authorize;
@@ -20,7 +21,7 @@ import pss.mira.orp.JavaOCAOCPP.service.ocpp.stopTransaction.StopTransaction;
 import java.util.List;
 import java.util.Map;
 
-import static eu.chargetime.ocpp.model.core.ChargePointStatus.Charging;
+import static eu.chargetime.ocpp.model.core.ChargePointStatus.Preparing;
 
 @EnableRabbit
 @Component
@@ -28,6 +29,7 @@ import static eu.chargetime.ocpp.model.core.ChargePointStatus.Charging;
 public class ListenerImpl implements Listener {
     private final Authorize authorize;
     private final BootNotification bootNotification;
+    private final ChargeSessionMap chargeSessionMap;
     private final ConnectorsInfoCache connectorsInfoCache;
     private final DataTransfer dataTransfer;
     private final Handler handler;
@@ -41,6 +43,7 @@ public class ListenerImpl implements Listener {
     public ListenerImpl(
             Authorize authorize,
             BootNotification bootNotification,
+            ChargeSessionMap chargeSessionMap,
             ConnectorsInfoCache connectorsInfoCache,
             DataTransfer dataTransfer,
             Handler handler,
@@ -52,6 +55,7 @@ public class ListenerImpl implements Listener {
     ) {
         this.authorize = authorize;
         this.bootNotification = bootNotification;
+        this.chargeSessionMap = chargeSessionMap;
         this.connectorsInfoCache = connectorsInfoCache;
         this.dataTransfer = dataTransfer;
         this.handler = handler;
@@ -79,6 +83,9 @@ public class ListenerImpl implements Listener {
                             case ("auth_list"):
                                 authorize.setAuthMap(parsedMessage);
                                 break;
+                            case ("Authorize"):
+                                handler.setAuthorizeConfirmation(parsedMessage);
+                                break;
                             case ("config_zs"):
                                 sendBootNotification(parsedMessage);
                                 break;
@@ -95,6 +102,9 @@ public class ListenerImpl implements Listener {
                                 // здесь была отправка Status Notification, но она обрабатывается отдельно в очереди
                                 // connectorsInfo
                                 handler.setAvailabilityStatus(parsedMessage);
+                                break;
+                            case ("RemoteStartTransaction"):
+                                handler.setRemoteStartStatus(parsedMessage);
                                 break;
                         }
                         requestCache.removeFromCache(uuid);
@@ -143,11 +153,18 @@ public class ListenerImpl implements Listener {
                 } else {
                     statusNotification.sendStatusNotification(request);
                 }
-                if (request.getStatus().equals(Charging)) {
-                    meterValues.addToChargingConnectors(request.getId());
-                } else {
-                    meterValues.removeFromChargingConnectors(request.getId());
+                if (request.getStatus().equals(Preparing)) {
+                    chargeSessionMap.stopPreparingTimer(request.getId());
+                    if (chargeSessionMap.canSendStartTransaction(request.getId())) {
+                        startTransaction.sendStartTransaction(chargeSessionMap.getChargeSessionInfo(request.getId()));
+                    }
                 }
+                // TODO старт meter values с нужным контекстом после ожидания. И, скорее всего, не здесь
+//                if (request.getStatus().equals(Charging)) {
+//                    meterValues.addToChargingConnectors(request.getId());
+//                } else {
+//                    meterValues.removeFromChargingConnectors(request.getId());
+//                }
             }
         } catch (Exception e) {
             log.error("Error when parsing a message from the broker");

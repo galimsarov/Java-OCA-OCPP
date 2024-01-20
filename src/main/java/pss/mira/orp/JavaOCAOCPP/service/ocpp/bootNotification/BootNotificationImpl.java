@@ -78,6 +78,8 @@ public class BootNotificationImpl implements BootNotification {
 
                     @Override
                     public void connectionClosed() {
+                        // Реализован вариант с отсутствием связи, потом связь появляется, начинаем работать
+                        // TODO Предусмотреть запуск станции, подключение к ЦС, обрыв связи, восстановление связи
                         log.warn("The connection to the central system has not been established. " +
                                 "Another try will be made");
                         connectionOpened[0] = false;
@@ -97,7 +99,7 @@ public class BootNotificationImpl implements BootNotification {
 
             // Use the feature profile to help create event
             Request request = core.createBootNotificationRequest(vendorName, bootNotificationRequest.getModel());
-
+            log.info("Sent to central system: " + request.toString());
             // Client returns a promise which will be filled once it receives a confirmation.
             try {
                 client.send(request).whenComplete((confirmation, ex) -> {

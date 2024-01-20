@@ -42,8 +42,18 @@ public class Utils {
         return (List<Map<String, Object>>) tables.get("tables").get(0).get("result");
     }
 
-    public static String format(Date date) {
+    public static String formatHeartbeatDateTime(Date date) {
         DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+        return dateFormat.format(date);
+    }
+
+    public static String formatStartStopTransactionDateTime(Date date) {
+        DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
+        return dateFormat.format(date);
+    }
+
+    public static String formatStartStopTransactionDateTimeUTC(Date date) {
+        DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
         return dateFormat.format(date);
     }
 

@@ -7,5 +7,6 @@ public enum DBKeys {
     configuration,
     getConfigurationForHandler,
     getConfigurationForMeterValues,
-    MeterValuesSampledData
+    MeterValuesSampledData,
+    transaction1
 }

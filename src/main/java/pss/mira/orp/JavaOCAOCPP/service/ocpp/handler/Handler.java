@@ -12,4 +12,8 @@ public interface Handler {
     void setConfigurationMap(List<Object> parsedMessage);
 
     void setChangeConfigurationStatus(List<Object> parsedMessage);
+
+    void setAuthorizeConfirmation(List<Object> parsedMessage);
+
+    void setRemoteStartStatus(List<Object> parsedMessage);
 }

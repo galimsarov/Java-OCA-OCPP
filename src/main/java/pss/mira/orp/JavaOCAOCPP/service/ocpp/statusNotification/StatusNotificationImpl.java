@@ -47,7 +47,7 @@ public class StatusNotificationImpl implements StatusNotification {
                 statusNotificationRequest.getErrorCode(),
                 statusNotificationRequest.getStatus()
         );
-
+        log.info("Sent to central system: " + request.toString());
         // Client returns a promise which will be filled once it receives a confirmation.
         try {
             client.send(request).whenComplete((confirmation, ex) -> {

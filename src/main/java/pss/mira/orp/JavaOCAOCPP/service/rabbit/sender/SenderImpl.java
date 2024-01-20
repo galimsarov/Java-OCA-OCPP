@@ -12,7 +12,7 @@ import java.util.Date;
 import java.util.List;
 
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Services.ocpp;
-import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.format;
+import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.formatHeartbeatDateTime;
 
 @Service
 @Slf4j
@@ -60,7 +60,7 @@ public class SenderImpl implements Sender {
 
     @Override
     public void sendRabbitHeartbeat() {
-        String message = "OCPP-service:" + format(new Date());
+        String message = "OCPP-service:" + formatHeartbeatDateTime(new Date());
         log.info("Send message in Queue witch listen HeartBeat");
         log.info("Sending message: " + message);
         template.setExchange(exchange);
