@@ -143,7 +143,7 @@ public class StartTransactionImpl implements StartTransaction {
                             )),
                     transaction1.name()
             );
-            meterValues.addToChargingConnectors(connectorId);
+            meterValues.addToChargingConnectors(connectorId, startTransactionConfirmation.getTransactionId());
         } else {
             // TODO Удалить из chargeSessionMap
             // TODO Отправить stop

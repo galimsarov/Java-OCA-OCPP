@@ -8,6 +8,7 @@ import eu.chargetime.ocpp.model.core.MeterValuesRequest;
 import eu.chargetime.ocpp.model.core.SampledValue;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.Handler;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
@@ -15,6 +16,7 @@ import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 import java.time.ZonedDateTime;
 import java.util.*;
 
+import static eu.chargetime.ocpp.model.core.ValueFormat.Raw;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.Get;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.configuration;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.getConfigurationForMeterValues;
@@ -26,19 +28,23 @@ import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.getResult;
 @Slf4j
 public class MeterValuesImpl implements MeterValues {
     private final BootNotification bootNotification;
+    private final ConnectorsInfoCache connectorsInfoCache;
     private final Handler handler;
     private final Sender sender;
     private final Set<Integer> chargingConnectors = new HashSet<>();
     private List<Map<String, Object>> configurationList = null;
 
-    public MeterValuesImpl(BootNotification bootNotification, Handler handler, Sender sender) {
+    public MeterValuesImpl(
+            BootNotification bootNotification, ConnectorsInfoCache connectorsInfoCache, Handler handler, Sender sender
+    ) {
         this.bootNotification = bootNotification;
+        this.connectorsInfoCache = connectorsInfoCache;
         this.handler = handler;
         this.sender = sender;
     }
 
     @Override
-    public void addToChargingConnectors(int connectorId) {
+    public void addToChargingConnectors(int connectorId, int transactionId) {
         chargingConnectors.add(connectorId);
         // Запрашиваем актуальную конфигурацию
         log.info("Trying to receive the configuration from DB");
@@ -66,10 +72,10 @@ public class MeterValuesImpl implements MeterValues {
                 break;
             }
         }
-        log.info("!!!meterValuesSampledData: " + meterValuesSampledData);
         if (meterValuesSampledData != null && meterValueSampleInterval != 0) {
+            sendMeterValues(connectorId, meterValuesSampledData, "Transaction.Begin", transactionId);
             Thread meterValuesThread =
-                    getMeterValuesThread(connectorId, meterValueSampleInterval, meterValuesSampledData);
+                    getMeterValuesThread(connectorId, meterValueSampleInterval, meterValuesSampledData, transactionId);
             meterValuesThread.start();
         }
     }
@@ -98,7 +104,9 @@ public class MeterValuesImpl implements MeterValues {
         return null;
     }
 
-    private Thread getMeterValuesThread(int connectorId, int meterValueSampleInterval, String meterValuesSampledData) {
+    private Thread getMeterValuesThread(
+            int connectorId, int meterValueSampleInterval, String meterValuesSampledData, int transactionId
+    ) {
         Runnable runMeterValues = () -> {
             while (true) {
                 try {
@@ -107,7 +115,7 @@ public class MeterValuesImpl implements MeterValues {
                     log.error("Аn error while waiting for a meter values to be sent");
                 }
                 if (chargingConnectors.contains(connectorId)) {
-                    sendMeterValues(connectorId, meterValuesSampledData);
+                    sendMeterValues(connectorId, meterValuesSampledData, "Sample.Periodic", transactionId);
                 } else {
                     break;
                 }
@@ -116,13 +124,14 @@ public class MeterValuesImpl implements MeterValues {
         return new Thread(runMeterValues);
     }
 
-    private void sendMeterValues(int connectorId, String meterValuesSampledData) {
+    private void sendMeterValues(int connectorId, String meterValuesSampledData, String context, int transactionId) {
         ClientCoreProfile core = handler.getCore();
         JSONClient client = bootNotification.getClient();
-        SampledValue[] sampledValues = getSampledValues(meterValuesSampledData);
+        SampledValue[] sampledValues = getSampledValues(meterValuesSampledData, connectorId, context);
 
         // Use the feature profile to help create event
         MeterValuesRequest request = core.createMeterValuesRequest(connectorId, ZonedDateTime.now(), sampledValues);
+        request.setTransactionId(transactionId);
         log.info("Ready to send meter values: " + request);
 
         // Client returns a promise which will be filled once it receives a confirmation.
@@ -135,9 +144,65 @@ public class MeterValuesImpl implements MeterValues {
         }
     }
 
-    private SampledValue[] getSampledValues(String meterValuesSampledData) {
-        SampledValue sampledValue = new SampledValue();
-        return new SampledValue[0];
+    private SampledValue[] getSampledValues(String meterValuesSampledData, int connectorId, String context) {
+        String[] meterValuesSampledDataArray = meterValuesSampledData.split(",");
+        List<SampledValue> sampledValueList = new ArrayList<>();
+        for (String meterValueType : meterValuesSampledDataArray) {
+            switch (meterValueType) {
+                case "Current.Import":
+                    SampledValue currentImport =
+                            new SampledValue(String.valueOf(connectorsInfoCache.getEVRequestedCurrent(connectorId)));
+                    currentImport.setContext(context);
+                    currentImport.setFormat(Raw);
+                    currentImport.setMeasurand("Current.Import");
+                    currentImport.setUnit("A");
+                    sampledValueList.add(currentImport);
+                    break;
+                case "Current.Offered":
+                    SampledValue currentOffered =
+                            new SampledValue(String.valueOf(connectorsInfoCache.getCurrentAmperage(connectorId)));
+                    currentOffered.setContext(context);
+                    currentOffered.setFormat(Raw);
+                    currentOffered.setMeasurand("Current.Offered");
+                    currentOffered.setUnit("A");
+                    sampledValueList.add(currentOffered);
+                    break;
+                case "Energy.Active.Import.Register":
+                    SampledValue energyActiveImportRegister =
+                            new SampledValue(
+                                    String.valueOf(connectorsInfoCache.getFullStationConsumedEnergy(connectorId))
+                            );
+                    energyActiveImportRegister.setContext(context);
+                    energyActiveImportRegister.setFormat(Raw);
+                    energyActiveImportRegister.setMeasurand("Energy.Active.Import.Register");
+                    energyActiveImportRegister.setUnit("Wh");
+                    sampledValueList.add(energyActiveImportRegister);
+                    break;
+                case "Power.Active.Import":
+                    SampledValue powerActiveImport =
+                            new SampledValue(String.valueOf(connectorsInfoCache.getEVRequestedPower(connectorId)));
+                    powerActiveImport.setContext(context);
+                    powerActiveImport.setFormat(Raw);
+                    powerActiveImport.setMeasurand("Power.Active.Import");
+                    powerActiveImport.setUnit("kW");
+                    sampledValueList.add(powerActiveImport);
+                    break;
+                case "SoC":
+                    SampledValue SoC =
+                            new SampledValue(String.valueOf(connectorsInfoCache.getPercent(connectorId)));
+                    SoC.setContext(context);
+                    SoC.setFormat(Raw);
+                    SoC.setMeasurand("SoC");
+                    SoC.setUnit("Percent");
+                    sampledValueList.add(SoC);
+                    break;
+            }
+        }
+        SampledValue[] result = new SampledValue[sampledValueList.size()];
+        for (int i = 0; i < result.length; i++) {
+            result[i] = sampledValueList.get(i);
+        }
+        return result;
     }
 
     @Override

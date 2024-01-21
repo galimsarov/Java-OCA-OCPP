@@ -14,5 +14,13 @@ public interface ConnectorsInfoCache {
 
     StatusNotificationRequest getStatusNotificationRequest(int connectorId);
 
-    int getFullStationConsumedEnergy(int id);
+    int getFullStationConsumedEnergy(int connectorId);
+
+    double getEVRequestedCurrent(int connectorId);
+
+    double getCurrentAmperage(int connectorId);
+
+    int getEVRequestedPower(int connectorId);
+
+    int getPercent(int connectorId);
 }

@@ -111,9 +111,42 @@ public class ConnectorsInfoCacheImpl implements ConnectorsInfoCache {
 
     /**
      * Исходим из того, что значение счётчика будет: "fullStationConsumedEnergy":100
+     * Для MeterValues "Energy.Active.Import.Register" берём "fullStationConsumedEnergy"
      */
     @Override
-    public int getFullStationConsumedEnergy(int id) {
-        return Integer.parseInt(connectorsMap.get(id).get("fullStationConsumedEnergy").toString());
+    public int getFullStationConsumedEnergy(int connectorId) {
+        return Integer.parseInt(connectorsMap.get(connectorId).get("fullStationConsumedEnergy").toString());
+    }
+
+    /**
+     * Для MeterValues "Current.Import" берём "ev_requested_current"
+     */
+    @Override
+    public double getEVRequestedCurrent(int connectorId) {
+        return Double.parseDouble(connectorsMap.get(connectorId).get("ev_requested_current").toString());
+    }
+
+    /**
+     * Для MeterValues "Current.Offered" берём "currentAmperage"
+     */
+    @Override
+    public double getCurrentAmperage(int connectorId) {
+        return Double.parseDouble(connectorsMap.get(connectorId).get("currentAmperage").toString());
+    }
+
+    /**
+     * Для MeterValues "Power.Active.Import" берём "ev_requested_power"
+     */
+    @Override
+    public int getEVRequestedPower(int connectorId) {
+        return Integer.parseInt(connectorsMap.get(connectorId).get("ev_requested_power").toString());
+    }
+
+    /**
+     * Для MeterValues "SoC" берём "percent"
+     */
+    @Override
+    public int getPercent(int connectorId) {
+        return Integer.parseInt(connectorsMap.get(connectorId).get("percent").toString());
     }
 }

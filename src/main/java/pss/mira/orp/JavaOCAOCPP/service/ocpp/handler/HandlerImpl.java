@@ -165,6 +165,10 @@ public class HandlerImpl implements Handler {
                 return null; // returning null means unsupported feature
             }
 
+            /**
+             * Ответ от cp для ocpp
+             * ["cp","c29baee7-dfed-4160-9edc-1548693a0cdf",{"RemoteStartTransaction":"Accepted"}]
+             */
             @Override
             public RemoteStartTransactionConfirmation handleRemoteStartTransactionRequest(
                     RemoteStartTransactionRequest request
@@ -215,7 +219,6 @@ public class HandlerImpl implements Handler {
                         }
                         authorizeConfirmation = null;
                         configurationList = null;
-                        // ["ocpp","c29baee7-dfed-4160-9edc-1548693a0cdf","RemoteStartTransaction",{"connectorId":1,"idTag":"hhhh","chargingProfile":null}]
                         sender.sendRequestToQueue(
                                 cp.name(),
                                 UUID.randomUUID().toString(),
