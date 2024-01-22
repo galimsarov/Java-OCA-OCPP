@@ -5,20 +5,25 @@ import eu.chargetime.ocpp.OccurenceConstraintException;
 import eu.chargetime.ocpp.UnsupportedFeatureException;
 import eu.chargetime.ocpp.feature.profile.ClientCoreProfile;
 import eu.chargetime.ocpp.model.Confirmation;
-import eu.chargetime.ocpp.model.Request;
+import eu.chargetime.ocpp.model.core.Reason;
+import eu.chargetime.ocpp.model.core.StopTransactionRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import pss.mira.orp.JavaOCAOCPP.models.requests.rabbit.DBTablesChangeRequest;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
-import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.chargeSessionInfo.ChargeSessionInfo;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.Handler;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 
 import java.time.ZonedDateTime;
-import java.util.*;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
+import static eu.chargetime.ocpp.model.core.Reason.Other;
+import static eu.chargetime.ocpp.model.core.Reason.Remote;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.Change;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.transaction1;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Services.bd;
@@ -52,86 +57,124 @@ public class StopTransactionImpl implements StopTransaction {
      * ["myQueue1","71f599b2-b3f0-4680-b447-ae6d6dc0cc0c","StopTransaction",{"transactionId":2682}]
      */
     @Override
-    public void sendStopTransaction(List<Object> parsedMessage) {
-        String consumer = parsedMessage.get(0).toString();
-        String requestUuid = parsedMessage.get(1).toString();
-        try {
-            Map<String, Object> stopTransactionMap = (Map<String, Object>) parsedMessage.get(3);
-            int transactionId = Integer.parseInt(stopTransactionMap.get("transactionId").toString());
+    public void sendLocalStop(List<Object> parsedMessage) {
+        Runnable finishingTask = () -> {
+            String consumer = parsedMessage.get(0).toString();
+            String requestUuid = parsedMessage.get(1).toString();
+            try {
+                Map<String, Object> stopTransactionMap = (Map<String, Object>) parsedMessage.get(3);
+                int connectorId = Integer.parseInt(stopTransactionMap.get("connectorId").toString());
+                String reason = stopTransactionMap.get("reason").toString();
+                while (true) {
+                    if (connectorsInfoCache.isCharging(connectorId)) {
+                        Thread.sleep(1000);
+                    } else {
+                        break;
+                    }
+                }
+                ClientCoreProfile core = handler.getCore();
+                JSONClient client = bootNotification.getClient();
 
-            ClientCoreProfile core = handler.getCore();
-            JSONClient client = bootNotification.getClient();
-
-            if (client == null) {
-                log.warn("There is no connection to the central system. " +
-                        "The stop transaction message will be sent after the connection is restored");
-                // TODO предусмотреть кэш для отправки сообщений после появления связи
-            } else {
-                // Use the feature profile to help create event
-                Integer connectorId = chargeSessionMap.getConnectorId(transactionId);
-                if (connectorId == null) {
-                    log.error("transactionId " + transactionId + " is not in the charge session map");
+                if (client == null) {
+                    log.warn("There is no connection to the central system. " +
+                            "The stop transaction message will be sent after the connection is restored");
+                    // TODO предусмотреть кэш для отправки сообщений после появления связи
                 } else {
-                    Request request = core.createStopTransactionRequest(
-                            connectorsInfoCache.getFullStationConsumedEnergy(connectorId), ZonedDateTime.now(), transactionId
+                    // Use the feature profile to help create event
+                    StopTransactionRequest stopTransactionRequest = core.createStopTransactionRequest(
+                            connectorsInfoCache.getFullStationConsumedEnergy(connectorId), ZonedDateTime.now(),
+                            chargeSessionMap.getChargeSessionInfo(connectorId).getTransactionId()
                     );
-
+                    stopTransactionRequest.setReason(getReasonFromEnum(reason));
                     // Client returns a promise which will be filled once it receives a confirmation.
                     try {
-                        client.send(request).whenComplete((confirmation, ex) -> {
+                        client.send(stopTransactionRequest).whenComplete((confirmation, ex) -> {
                             log.info("Received from the central system: " + confirmation);
-                            handleResponse(consumer, requestUuid, confirmation, connectorId);
+                            handleResponse(consumer, requestUuid, confirmation, connectorId, reason);
                         });
                     } catch (OccurenceConstraintException | UnsupportedFeatureException ignored) {
                         log.warn("An error occurred while sending or processing stop transaction request");
                     }
                 }
+            } catch (Exception ignored) {
+                log.error("An error occurred while receiving stop transaction data from the message");
             }
-        } catch (Exception ignored) {
-            log.error("An error occurred while receiving stop transaction data from the message");
+        };
+        Thread finishingThread = new Thread(finishingTask);
+        finishingThread.start();
+    }
+
+    private Reason getReasonFromEnum(String reason) {
+        for (Reason enumReason : Reason.values()) {
+            if (enumReason.name().equals(reason)) {
+                return enumReason;
+            }
         }
+        return Other;
     }
 
     @Override
-    public void sendStopTransaction(ChargeSessionInfo chargeSessionInfo) {
-        Map<String, Object> stopTransactionMap = new HashMap<>();
-        stopTransactionMap.put("transactionId", chargeSessionInfo.getTransactionId());
-        sendStopTransaction(List.of("", "", "", stopTransactionMap));
+    public void sendRemoteStop(int connectorId) {
+        ClientCoreProfile core = handler.getCore();
+        JSONClient client = bootNotification.getClient();
+
+        if (client == null) {
+            log.warn("There is no connection to the central system. " +
+                    "The stop transaction message will be sent after the connection is restored");
+            // TODO предусмотреть кэш для отправки сообщений после появления связи
+        } else {
+            // Use the feature profile to help create event
+            StopTransactionRequest stopTransactionRequest = core.createStopTransactionRequest(
+                    connectorsInfoCache.getFullStationConsumedEnergy(connectorId), ZonedDateTime.now(),
+                    chargeSessionMap.getChargeSessionInfo(connectorId).getTransactionId()
+            );
+            stopTransactionRequest.setReason(Remote);
+            // Client returns a promise which will be filled once it receives a confirmation.
+            try {
+                client.send(stopTransactionRequest).whenComplete((confirmation, ex) -> {
+                    log.info("Received from the central system: " + confirmation);
+                    handleResponse("", "", confirmation, connectorId, Remote.name());
+                });
+            } catch (OccurenceConstraintException | UnsupportedFeatureException ignored) {
+                log.warn("An error occurred while sending or processing stop transaction request");
+            }
+        }
     }
 
     /**
      * Steve возвращал null, поэтому idTagInfo собирать не из чего. При необходимости можно предусмотреть
      */
-    private void handleResponse(String consumer, String requestUuid, Confirmation confirmation, int connectorId) {
-        if (consumer.isBlank()) {
-            String consumedPower = String.valueOf(connectorsInfoCache.getFullStationConsumedEnergy(connectorId) -
-                    chargeSessionMap.getStartFullStationConsumedEnergy(connectorId));
-            sender.sendRequestToQueue(
-                    bd.name(),
-                    UUID.randomUUID().toString(),
-                    Change.name(),
-                    new DBTablesChangeRequest(
-                            transaction1.name(),
-                            "transaction_id:" +
-                                    chargeSessionMap.getChargeSessionInfo(connectorId).getTransactionId(),
-                            List.of(
-                                    Map.of("key", "consumed_power", "value", consumedPower),
-                                    Map.of("key", "full_station_consumed_energy", "value",
-                                            String.valueOf(connectorsInfoCache.getFullStationConsumedEnergy(connectorId))),
-                                    Map.of("key", "reson_stop", "value", "Remote"),
-                                    Map.of("key", "stop_date_time", "value",
-                                            formatStartStopTransactionDateTime(new Date())),
-                                    Map.of("key", "stop_date_timeutc", "value",
-                                            formatStartStopTransactionDateTimeUTC(new Date())),
-                                    Map.of("key", "stop_error", "value", "NoError"),
-                                    Map.of("key", "stop_percent", "value",
-                                            String.valueOf(connectorsInfoCache.getPercent(connectorId))),
-                                    Map.of("key", "stop_vendor_error", "value", "NoErrorVendor")
-                            )),
-                    transaction1.name()
-            );
-            chargeSessionMap.removeFromChargeSessionMap(connectorId);
-        } else {
+    private void handleResponse(
+            String consumer, String requestUuid, Confirmation confirmation, int connectorId, String reason
+    ) {
+        String consumedPower = String.valueOf(connectorsInfoCache.getFullStationConsumedEnergy(connectorId) -
+                chargeSessionMap.getStartFullStationConsumedEnergy(connectorId));
+        sender.sendRequestToQueue(
+                bd.name(),
+                UUID.randomUUID().toString(),
+                Change.name(),
+                new DBTablesChangeRequest(
+                        transaction1.name(),
+                        "transaction_id:" +
+                                chargeSessionMap.getChargeSessionInfo(connectorId).getTransactionId(),
+                        List.of(
+                                Map.of("key", "consumed_power", "value", consumedPower),
+                                Map.of("key", "full_station_consumed_energy", "value",
+                                        String.valueOf(connectorsInfoCache.getFullStationConsumedEnergy(connectorId))),
+                                Map.of("key", "reson_stop", "value", reason),
+                                Map.of("key", "stop_date_time", "value",
+                                        formatStartStopTransactionDateTime(new Date())),
+                                Map.of("key", "stop_date_timeutc", "value",
+                                        formatStartStopTransactionDateTimeUTC(new Date())),
+                                Map.of("key", "stop_error", "value", "NoError"),
+                                Map.of("key", "stop_percent", "value",
+                                        String.valueOf(connectorsInfoCache.getPercent(connectorId))),
+                                Map.of("key", "stop_vendor_error", "value", "NoErrorVendor")
+                        )),
+                transaction1.name()
+        );
+        chargeSessionMap.removeFromChargeSessionMap(connectorId);
+        if (!consumer.isBlank()) {
             sender.sendRequestToQueue(consumer, requestUuid, "", confirmation, "");
         }
     }

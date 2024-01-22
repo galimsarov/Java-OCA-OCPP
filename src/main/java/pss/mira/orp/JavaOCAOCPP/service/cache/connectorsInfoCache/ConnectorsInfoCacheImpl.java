@@ -154,4 +154,9 @@ public class ConnectorsInfoCacheImpl implements ConnectorsInfoCache {
     public String getChargePointVendorError(int connectorId) {
         return connectorsMap.get(connectorId).get("chargePointVendorError").toString();
     }
+
+    @Override
+    public boolean isCharging(int connectorId) {
+        return connectorsMap.get(connectorId).get("status").toString().equals("Charging");
+    }
 }

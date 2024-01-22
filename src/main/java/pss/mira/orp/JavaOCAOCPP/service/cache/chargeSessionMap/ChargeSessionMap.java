@@ -22,4 +22,8 @@ public interface ChargeSessionMap {
     int getStartFullStationConsumedEnergy(int connectorId);
 
     boolean isRemoteStart(int connectorId);
+
+    void setRemoteStopByTransactionId(int transactionId);
+
+    boolean isRemoteStop(int connectorId);
 }

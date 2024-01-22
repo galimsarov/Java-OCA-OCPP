@@ -224,7 +224,7 @@ public class MeterValuesImpl implements MeterValues {
                 getConfigurationForMeterValues.name()
         );
         String meterValuesSampledData;
-        // Дожидаемся ответа, потому нужен перечень данных
+        // Дожидаемся ответа, потому что нужен перечень данных
         while (true) {
             if (configurationList == null) {
                 try {

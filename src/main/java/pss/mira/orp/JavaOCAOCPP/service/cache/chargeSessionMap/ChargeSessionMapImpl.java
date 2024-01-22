@@ -76,4 +76,19 @@ public class ChargeSessionMapImpl implements ChargeSessionMap {
     public boolean isRemoteStart(int connectorId) {
         return map.get(connectorId).isRemoteStart();
     }
+
+    @Override
+    public void setRemoteStopByTransactionId(int transactionId) {
+        for (Map.Entry<Integer, ChargeSessionInfo> entry : map.entrySet()) {
+            if (entry.getValue().getTransactionId() == transactionId) {
+                entry.getValue().setRemoteStop(true);
+                break;
+            }
+        }
+    }
+
+    @Override
+    public boolean isRemoteStop(int connectorId) {
+        return map.get(connectorId).isRemoteStop();
+    }
 }

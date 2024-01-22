@@ -10,4 +10,5 @@ public class ChargeSessionInfo {
     private PreparingTimer preparingTimer;
     private int startFullStationConsumedEnergy = 0;
     private boolean isRemoteStart = false;
+    private boolean isRemoteStop = false;
 }

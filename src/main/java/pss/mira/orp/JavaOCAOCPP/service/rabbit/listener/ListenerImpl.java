@@ -124,8 +124,8 @@ public class ListenerImpl implements Listener {
                         case ("StartTransaction"):
                             startTransaction.sendStartTransaction(parsedMessage);
                             break;
-                        case ("StopTransaction"):
-                            stopTransaction.sendStopTransaction(parsedMessage);
+                        case ("LocalStop"):
+                            stopTransaction.sendLocalStop(parsedMessage);
                             break;
                     }
                 }
@@ -167,7 +167,9 @@ public class ListenerImpl implements Listener {
                 }
                 if (request.getStatus().equals(Finishing)) {
                     meterValues.removeFromChargingConnectors(request.getId());
-                    stopTransaction.sendStopTransaction(chargeSessionMap.getChargeSessionInfo(request.getId()));
+                    if (chargeSessionMap.isRemoteStop(request.getId())) {
+                        stopTransaction.sendRemoteStop(request.getId());
+                    }
                 }
             }
         } catch (Exception e) {

@@ -224,7 +224,7 @@ public class HandlerImpl implements Handler {
                         Map<String, Integer> map = new HashMap<>();
                         map.put("connectorId", request.getConnectorId());
                         sender.sendRequestToQueue(
-                                mainChargePointLogic.name(),
+                                cp.name(),
                                 UUID.randomUUID().toString(),
                                 RemoteStartTransaction.name(),
                                 map,
@@ -269,7 +269,7 @@ public class HandlerImpl implements Handler {
             ) {
                 log.info("Received from the central system: " + request.toString());
                 sender.sendRequestToQueue(
-                        mainChargePointLogic.name(),
+                        cp.name(),
                         UUID.randomUUID().toString(),
                         RemoteStopTransaction.name(),
                         request,
@@ -287,6 +287,9 @@ public class HandlerImpl implements Handler {
                     }
                 }
                 RemoteStopTransactionConfirmation result = new RemoteStopTransactionConfirmation(remoteStopStatus);
+                if (remoteStopStatus.equals(RemoteStartStopStatus.Accepted)) {
+                    chargeSessionMap.setRemoteStopByTransactionId(request.getTransactionId());
+                }
                 remoteStopStatus = null;
                 log.info("Sent to central system: " + result);
                 return result;

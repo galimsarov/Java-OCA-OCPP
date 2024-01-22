@@ -2,7 +2,7 @@ package pss.mira.orp.JavaOCAOCPP.models.enums;
 
 public enum Services {
     bd,
-    mainChargePointLogic,
+    cp, // mainChargePointLogic
     ModBus,
     ocpp
 }
