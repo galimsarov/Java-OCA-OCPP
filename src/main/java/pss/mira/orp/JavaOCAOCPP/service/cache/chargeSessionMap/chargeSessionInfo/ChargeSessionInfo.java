@@ -8,4 +8,5 @@ public class ChargeSessionInfo {
     private String idTag;
     private int transactionId;
     private PreparingTimer preparingTimer;
+    private int startFullStationConsumedEnergy = 0;
 }

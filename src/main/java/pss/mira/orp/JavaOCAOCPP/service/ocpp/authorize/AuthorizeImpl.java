@@ -157,9 +157,9 @@ public class AuthorizeImpl implements Authorize {
     }
 
     private void handleResponse(String consumer, String requestUuid, Confirmation confirmation) {
-        IdTagInfo idTagInfo = ((AuthorizeConfirmation) confirmation).getIdTagInfo();
-        Map<String, Map<String, String>> result = new HashMap<>();
-        result.put("idTagInfo", getIdTagInfoMap(idTagInfo));
+        AuthorizeConfirmation authorizeConfirmation = (AuthorizeConfirmation) confirmation;
+        Map<String, String> result = new HashMap<>();
+        result.put("status", authorizeConfirmation.getIdTagInfo().getStatus().name());
         sender.sendRequestToQueue(consumer, requestUuid, "", result, "");
     }
 }

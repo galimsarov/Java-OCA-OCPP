@@ -53,4 +53,19 @@ public class ChargeSessionMapImpl implements ChargeSessionMap {
     public boolean canSendStartTransaction(int connectorId) {
         return map.get(connectorId).getPreparingTimer().getTimer() > 0;
     }
+
+    @Override
+    public void removeFromChargeSessionMap(int connectorId) {
+        map.remove(connectorId);
+    }
+
+    @Override
+    public void setStartFullStationConsumedEnergy(int connectorId, int startFullStationConsumedEnergy) {
+        map.get(connectorId).setStartFullStationConsumedEnergy(startFullStationConsumedEnergy);
+    }
+
+    @Override
+    public int getStartFullStationConsumedEnergy(int connectorId) {
+        return map.get(connectorId).getStartFullStationConsumedEnergy();
+    }
 }

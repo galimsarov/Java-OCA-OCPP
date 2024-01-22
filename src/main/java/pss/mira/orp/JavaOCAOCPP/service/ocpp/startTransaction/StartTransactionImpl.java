@@ -107,12 +107,15 @@ public class StartTransactionImpl implements StartTransaction {
     private void handleResponse(
             String consumer, String requestUuid, Confirmation confirmation, int connectorId, String idTag
     ) {
-        IdTagInfo idTagInfo = ((StartTransactionConfirmation) confirmation).getIdTagInfo();
+        StartTransactionConfirmation startTransactionConfirmation = (StartTransactionConfirmation) confirmation;
+        IdTagInfo idTagInfo = startTransactionConfirmation.getIdTagInfo();
         Map<String, Object> result = new HashMap<>();
         result.put("idTagInfo", getIdTagInfoMap(idTagInfo));
-        int transactionId = ((StartTransactionConfirmation) confirmation).getTransactionId();
-        result.put("transactionId", transactionId);
-        chargeSessionMap.setTransactionId(connectorId, transactionId);
+        int transactionId = startTransactionConfirmation.getTransactionId();
+        if (startTransactionConfirmation.getIdTagInfo().getStatus().equals(Accepted) && (transactionId != 0)) {
+            result.put("transactionId", transactionId);
+            chargeSessionMap.setTransactionId(connectorId, transactionId);
+        }
         if (consumer.isBlank()) {
             createOrStopTransaction(confirmation, connectorId, idTag);
         } else {
@@ -144,6 +147,9 @@ public class StartTransactionImpl implements StartTransaction {
                     transaction1.name()
             );
             meterValues.addToChargingConnectors(connectorId, startTransactionConfirmation.getTransactionId());
+            chargeSessionMap.setStartFullStationConsumedEnergy(
+                    connectorId, connectorsInfoCache.getFullStationConsumedEnergy(connectorId)
+            );
         } else {
             // TODO Удалить из chargeSessionMap
             // TODO Отправить stop

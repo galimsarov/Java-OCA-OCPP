@@ -149,4 +149,9 @@ public class ConnectorsInfoCacheImpl implements ConnectorsInfoCache {
     public int getPercent(int connectorId) {
         return Integer.parseInt(connectorsMap.get(connectorId).get("percent").toString());
     }
+
+    @Override
+    public String getChargePointVendorError(int connectorId) {
+        return connectorsMap.get(connectorId).get("chargePointVendorError").toString();
+    }
 }

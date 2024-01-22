@@ -9,6 +9,7 @@ import pss.mira.orp.JavaOCAOCPP.models.requests.rabbit.DBTablesChangeRequest;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -33,6 +34,7 @@ public class HandlerImpl implements Handler {
     private ConfigurationStatus changeConfigurationStatus = null;
     private AuthorizeConfirmation authorizeConfirmation = null;
     private RemoteStartStopStatus remoteStartStatus = null;
+    private RemoteStartStopStatus remoteStopStatus = null;
 
     public HandlerImpl(ChargeSessionMap chargeSessionMap, Sender sender) {
         this.chargeSessionMap = chargeSessionMap;
@@ -166,8 +168,8 @@ public class HandlerImpl implements Handler {
             }
 
             /**
-             * Ответ от cp для ocpp
-             * ["cp","c29baee7-dfed-4160-9edc-1548693a0cdf",{"RemoteStartTransaction":"Accepted"}]
+             * Ответ от mainChargePointLogic для ocpp
+             * ["mainChargePointLogic","c29baee7-dfed-4160-9edc-1548693a0cdf",{"status":"Accepted"}]
              */
             @Override
             public RemoteStartTransactionConfirmation handleRemoteStartTransactionRequest(
@@ -219,11 +221,13 @@ public class HandlerImpl implements Handler {
                         }
                         authorizeConfirmation = null;
                         configurationList = null;
+                        Map<String, Integer> map = new HashMap<>();
+                        map.put("connectorId", request.getConnectorId());
                         sender.sendRequestToQueue(
-                                cp.name(),
+                                mainChargePointLogic.name(),
                                 UUID.randomUUID().toString(),
                                 RemoteStartTransaction.name(),
-                                request,
+                                map,
                                 RemoteStartTransaction.name()
                         );
                         while (true) {
@@ -263,11 +267,29 @@ public class HandlerImpl implements Handler {
             public RemoteStopTransactionConfirmation handleRemoteStopTransactionRequest(
                     RemoteStopTransactionRequest request
             ) {
-
-                log.info(request.toString());
-                // ... handle event
-
-                return null; // returning null means unsupported feature
+                log.info("Received from the central system: " + request.toString());
+                sender.sendRequestToQueue(
+                        mainChargePointLogic.name(),
+                        UUID.randomUUID().toString(),
+                        RemoteStopTransaction.name(),
+                        request,
+                        RemoteStopTransaction.name()
+                );
+                while (true) {
+                    if (remoteStopStatus == null) {
+                        try {
+                            Thread.sleep(1000);
+                        } catch (InterruptedException e) {
+                            log.error("Аn error while waiting for remote start transaction response");
+                        }
+                    } else {
+                        break;
+                    }
+                }
+                RemoteStopTransactionConfirmation result = new RemoteStopTransactionConfirmation(remoteStopStatus);
+                remoteStopStatus = null;
+                log.info("Sent to central system: " + result);
+                return result;
             }
 
             @Override
@@ -333,8 +355,8 @@ public class HandlerImpl implements Handler {
     @Override
     public void setAuthorizeConfirmation(List<Object> parsedMessage) {
         try {
-            Map<String, Map<String, String>> idTagInfoMap = (Map<String, Map<String, String>>) parsedMessage.get(2);
-            String status = idTagInfoMap.get("idTagInfo").get("status");
+            Map<String, String> map = (Map<String, String>) parsedMessage.get(2);
+            String status = map.get("status");
             for (AuthorizationStatus statusFromEnum : AuthorizationStatus.values()) {
                 if (statusFromEnum.name().equals(status)) {
                     IdTagInfo idTagInfo = new IdTagInfo(Accepted);
@@ -351,16 +373,28 @@ public class HandlerImpl implements Handler {
     }
 
     @Override
-    public void setRemoteStartStatus(List<Object> parsedMessage) {
+    public void setRemoteStartStopStatus(List<Object> parsedMessage, String type) {
         try {
             Map<String, String> remoteStartTransactionMap = (Map<String, String>) parsedMessage.get(2);
-            if (remoteStartTransactionMap.get("RemoteStartTransaction").equals(Accepted.toString())) {
-                remoteStartStatus = RemoteStartStopStatus.Accepted;
+            if (remoteStartTransactionMap.get("status").equals(Accepted.toString())) {
+                if (type.equals("start")) {
+                    remoteStartStatus = RemoteStartStopStatus.Accepted;
+                } else {
+                    remoteStopStatus = RemoteStartStopStatus.Accepted;
+                }
             } else {
-                remoteStartStatus = RemoteStartStopStatus.Rejected;
+                if (type.equals("start")) {
+                    remoteStartStatus = RemoteStartStopStatus.Rejected;
+                } else {
+                    remoteStopStatus = RemoteStartStopStatus.Rejected;
+                }
             }
         } catch (Exception ignored) {
-            remoteStartStatus = RemoteStartStopStatus.Rejected;
+            if (type.equals("start")) {
+                remoteStartStatus = RemoteStartStopStatus.Rejected;
+            } else {
+                remoteStopStatus = RemoteStartStopStatus.Rejected;
+            }
         }
     }
 }

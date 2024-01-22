@@ -8,6 +8,7 @@ import eu.chargetime.ocpp.model.core.MeterValuesRequest;
 import eu.chargetime.ocpp.model.core.SampledValue;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.Handler;
@@ -28,6 +29,7 @@ import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.getResult;
 @Slf4j
 public class MeterValuesImpl implements MeterValues {
     private final BootNotification bootNotification;
+    private final ChargeSessionMap chargeSessionMap;
     private final ConnectorsInfoCache connectorsInfoCache;
     private final Handler handler;
     private final Sender sender;
@@ -35,9 +37,14 @@ public class MeterValuesImpl implements MeterValues {
     private List<Map<String, Object>> configurationList = null;
 
     public MeterValuesImpl(
-            BootNotification bootNotification, ConnectorsInfoCache connectorsInfoCache, Handler handler, Sender sender
+            BootNotification bootNotification,
+            ChargeSessionMap chargeSessionMap,
+            ConnectorsInfoCache connectorsInfoCache,
+            Handler handler,
+            Sender sender
     ) {
         this.bootNotification = bootNotification;
+        this.chargeSessionMap = chargeSessionMap;
         this.connectorsInfoCache = connectorsInfoCache;
         this.handler = handler;
         this.sender = sender;
@@ -207,7 +214,33 @@ public class MeterValuesImpl implements MeterValues {
 
     @Override
     public void removeFromChargingConnectors(int connectorId) {
+        // Запрашиваем актуальную конфигурацию
+        log.info("Trying to receive the configuration from DB");
+        sender.sendRequestToQueue(
+                bd.name(),
+                UUID.randomUUID().toString(),
+                Get.name(),
+                getDBTablesGetRequest(List.of(configuration.name())),
+                getConfigurationForMeterValues.name()
+        );
+        String meterValuesSampledData;
+        // Дожидаемся ответа, потому нужен перечень данных
+        while (true) {
+            if (configurationList == null) {
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    log.error("Аn error while waiting for a get configuration response");
+                }
+            } else {
+                meterValuesSampledData = getMeterValuesSampledData();
+                configurationList = null;
+                break;
+            }
+        }
+        int transactionId = chargeSessionMap.getChargeSessionInfo(connectorId).getTransactionId();
         chargingConnectors.remove(connectorId);
+        sendMeterValues(connectorId, meterValuesSampledData, "Transaction.End", transactionId);
     }
 
     @Override

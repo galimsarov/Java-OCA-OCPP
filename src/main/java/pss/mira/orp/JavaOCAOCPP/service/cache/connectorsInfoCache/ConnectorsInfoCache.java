@@ -23,4 +23,6 @@ public interface ConnectorsInfoCache {
     int getEVRequestedPower(int connectorId);
 
     int getPercent(int connectorId);
+
+    String getChargePointVendorError(int connectorId);
 }

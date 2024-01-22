@@ -14,4 +14,10 @@ public interface ChargeSessionMap {
     void stopPreparingTimer(int connectorId);
 
     boolean canSendStartTransaction(int connectorId);
+
+    void removeFromChargeSessionMap(int connectorId);
+
+    void setStartFullStationConsumedEnergy(int connectorId, int startFullStationConsumedEnergy);
+
+    int getStartFullStationConsumedEnergy(int connectorId);
 }

@@ -8,15 +8,22 @@ import eu.chargetime.ocpp.model.Confirmation;
 import eu.chargetime.ocpp.model.Request;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import pss.mira.orp.JavaOCAOCPP.models.requests.rabbit.DBTablesChangeRequest;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
+import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.chargeSessionInfo.ChargeSessionInfo;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.Handler;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 
 import java.time.ZonedDateTime;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+
+import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.Change;
+import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.transaction1;
+import static pss.mira.orp.JavaOCAOCPP.models.enums.Services.bd;
+import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.formatStartStopTransactionDateTime;
+import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.formatStartStopTransactionDateTimeUTC;
 
 @Service
 @Slf4j
@@ -40,7 +47,6 @@ public class StopTransactionImpl implements StopTransaction {
         this.handler = handler;
         this.sender = sender;
     }
-
 
     /**
      * ["myQueue1","71f599b2-b3f0-4680-b447-ae6d6dc0cc0c","StopTransaction",{"transactionId":2682}]
@@ -74,7 +80,7 @@ public class StopTransactionImpl implements StopTransaction {
                     try {
                         client.send(request).whenComplete((confirmation, ex) -> {
                             log.info("Received from the central system: " + confirmation);
-                            handleResponse(consumer, requestUuid, confirmation);
+                            handleResponse(consumer, requestUuid, confirmation, connectorId);
                         });
                     } catch (OccurenceConstraintException | UnsupportedFeatureException ignored) {
                         log.warn("An error occurred while sending or processing stop transaction request");
@@ -86,10 +92,47 @@ public class StopTransactionImpl implements StopTransaction {
         }
     }
 
+    @Override
+    public void sendStopTransaction(ChargeSessionInfo chargeSessionInfo) {
+        Map<String, Object> stopTransactionMap = new HashMap<>();
+        stopTransactionMap.put("transactionId", chargeSessionInfo.getTransactionId());
+        sendStopTransaction(List.of("", "", "", stopTransactionMap));
+    }
+
     /**
      * Steve возвращал null, поэтому idTagInfo собирать не из чего. При необходимости можно предусмотреть
      */
-    private void handleResponse(String consumer, String requestUuid, Confirmation confirmation) {
-        sender.sendRequestToQueue(consumer, requestUuid, "", confirmation, "");
+    private void handleResponse(String consumer, String requestUuid, Confirmation confirmation, int connectorId) {
+        if (consumer.isBlank()) {
+            String consumedPower = String.valueOf(connectorsInfoCache.getFullStationConsumedEnergy(connectorId) -
+                    chargeSessionMap.getStartFullStationConsumedEnergy(connectorId));
+            sender.sendRequestToQueue(
+                    bd.name(),
+                    UUID.randomUUID().toString(),
+                    Change.name(),
+                    new DBTablesChangeRequest(
+                            transaction1.name(),
+                            "transaction_id:" +
+                                    chargeSessionMap.getChargeSessionInfo(connectorId).getTransactionId(),
+                            List.of(
+                                    Map.of("key", "consumed_power", "value", consumedPower),
+                                    Map.of("key", "full_station_consumed_energy", "value",
+                                            String.valueOf(connectorsInfoCache.getFullStationConsumedEnergy(connectorId))),
+                                    Map.of("key", "reson_stop", "value", "Remote"),
+                                    Map.of("key", "stop_date_time", "value",
+                                            formatStartStopTransactionDateTime(new Date())),
+                                    Map.of("key", "stop_date_timeutc", "value",
+                                            formatStartStopTransactionDateTimeUTC(new Date())),
+                                    Map.of("key", "stop_error", "value", "NoError"),
+                                    Map.of("key", "stop_percent", "value",
+                                            String.valueOf(connectorsInfoCache.getPercent(connectorId))),
+                                    Map.of("key", "stop_vendor_error", "value", "NoErrorVendor")
+                            )),
+                    transaction1.name()
+            );
+            chargeSessionMap.removeFromChargeSessionMap(connectorId);
+        } else {
+            sender.sendRequestToQueue(consumer, requestUuid, "", confirmation, "");
+        }
     }
 }

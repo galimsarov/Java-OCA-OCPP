@@ -21,6 +21,7 @@ import pss.mira.orp.JavaOCAOCPP.service.ocpp.stopTransaction.StopTransaction;
 import java.util.List;
 import java.util.Map;
 
+import static eu.chargetime.ocpp.model.core.ChargePointStatus.Finishing;
 import static eu.chargetime.ocpp.model.core.ChargePointStatus.Preparing;
 
 @EnableRabbit
@@ -104,7 +105,10 @@ public class ListenerImpl implements Listener {
                                 handler.setAvailabilityStatus(parsedMessage);
                                 break;
                             case ("RemoteStartTransaction"):
-                                handler.setRemoteStartStatus(parsedMessage);
+                                handler.setRemoteStartStopStatus(parsedMessage, "start");
+                                break;
+                            case ("RemoteStopTransaction"):
+                                handler.setRemoteStartStopStatus(parsedMessage, "stop");
                                 break;
                         }
                         requestCache.removeFromCache(uuid);
@@ -159,12 +163,10 @@ public class ListenerImpl implements Listener {
                         startTransaction.sendStartTransaction(chargeSessionMap.getChargeSessionInfo(request.getId()));
                     }
                 }
-                // TODO старт meter values с нужным контекстом после ожидания. И, скорее всего, не здесь
-//                if (request.getStatus().equals(Charging)) {
-//                    meterValues.addToChargingConnectors(request.getId());
-//                } else {
-//                    meterValues.removeFromChargingConnectors(request.getId());
-//                }
+                if (request.getStatus().equals(Finishing)) {
+                    meterValues.removeFromChargingConnectors(request.getId());
+                    stopTransaction.sendStopTransaction(chargeSessionMap.getChargeSessionInfo(request.getId()));
+                }
             }
         } catch (Exception e) {
             log.error("Error when parsing a message from the broker");

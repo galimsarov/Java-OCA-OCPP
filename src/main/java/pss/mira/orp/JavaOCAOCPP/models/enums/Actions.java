@@ -7,6 +7,7 @@ public enum Actions {
     Get,
     // cp
     RemoteStartTransaction,
+    RemoteStopTransaction,
     // ocpp, то есть, сам себе
     Authorize,
     // ModBus
