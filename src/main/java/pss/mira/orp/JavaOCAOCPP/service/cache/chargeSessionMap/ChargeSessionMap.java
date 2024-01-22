@@ -3,7 +3,7 @@ package pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.chargeSessionInfo.ChargeSessionInfo;
 
 public interface ChargeSessionMap {
-    void addToChargeSessionMap(int connectorId, String idTag);
+    void addToChargeSessionMap(int connectorId, String idTag, boolean isRemoteStart);
 
     ChargeSessionInfo getChargeSessionInfo(int connectorId);
 
@@ -20,4 +20,6 @@ public interface ChargeSessionMap {
     void setStartFullStationConsumedEnergy(int connectorId, int startFullStationConsumedEnergy);
 
     int getStartFullStationConsumedEnergy(int connectorId);
+
+    boolean isRemoteStart(int connectorId);
 }

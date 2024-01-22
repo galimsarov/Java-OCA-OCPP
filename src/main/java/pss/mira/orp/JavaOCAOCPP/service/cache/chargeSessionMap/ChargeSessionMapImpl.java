@@ -12,11 +12,14 @@ public class ChargeSessionMapImpl implements ChargeSessionMap {
     private final Map<Integer, ChargeSessionInfo> map = new HashMap<>();
 
     @Override
-    public void addToChargeSessionMap(int connectorId, String idTag) {
+    public void addToChargeSessionMap(int connectorId, String idTag, boolean isRemoteStart) {
         ChargeSessionInfo chargeSessionInfo = new ChargeSessionInfo();
         chargeSessionInfo.setConnectorId(connectorId);
         chargeSessionInfo.setIdTag(idTag);
-        chargeSessionInfo.setPreparingTimer(new PreparingTimer());
+        if (isRemoteStart) {
+            chargeSessionInfo.setPreparingTimer(new PreparingTimer());
+        }
+        chargeSessionInfo.setRemoteStart(isRemoteStart);
         map.put(connectorId, chargeSessionInfo);
     }
 
@@ -67,5 +70,10 @@ public class ChargeSessionMapImpl implements ChargeSessionMap {
     @Override
     public int getStartFullStationConsumedEnergy(int connectorId) {
         return map.get(connectorId).getStartFullStationConsumedEnergy();
+    }
+
+    @Override
+    public boolean isRemoteStart(int connectorId) {
+        return map.get(connectorId).isRemoteStart();
     }
 }

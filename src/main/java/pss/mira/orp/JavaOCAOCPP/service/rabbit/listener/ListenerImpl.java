@@ -21,8 +21,7 @@ import pss.mira.orp.JavaOCAOCPP.service.ocpp.stopTransaction.StopTransaction;
 import java.util.List;
 import java.util.Map;
 
-import static eu.chargetime.ocpp.model.core.ChargePointStatus.Finishing;
-import static eu.chargetime.ocpp.model.core.ChargePointStatus.Preparing;
+import static eu.chargetime.ocpp.model.core.ChargePointStatus.*;
 
 @EnableRabbit
 @Component
@@ -145,7 +144,7 @@ public class ListenerImpl implements Listener {
     }
 
     @Override
-    @RabbitListener(queues = "connectorsInfo")
+    @RabbitListener(queues = "myQueue1")
     public void processConnectorsInfo(String message) {
         log.info("Received from connectorsInfo queue: " + message);
         try {
@@ -157,11 +156,14 @@ public class ListenerImpl implements Listener {
                 } else {
                     statusNotification.sendStatusNotification(request);
                 }
-                if (request.getStatus().equals(Preparing)) {
+                if (request.getStatus().equals(Preparing) && chargeSessionMap.isRemoteStart(request.getId())) {
                     chargeSessionMap.stopPreparingTimer(request.getId());
                     if (chargeSessionMap.canSendStartTransaction(request.getId())) {
                         startTransaction.sendStartTransaction(chargeSessionMap.getChargeSessionInfo(request.getId()));
                     }
+                }
+                if (request.getStatus().equals(Charging) && !chargeSessionMap.isRemoteStart(request.getId())) {
+                    startTransaction.sendStartTransaction(chargeSessionMap.getChargeSessionInfo(request.getId()));
                 }
                 if (request.getStatus().equals(Finishing)) {
                     meterValues.removeFromChargingConnectors(request.getId());

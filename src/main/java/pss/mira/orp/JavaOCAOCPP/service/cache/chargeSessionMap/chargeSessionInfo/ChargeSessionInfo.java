@@ -9,4 +9,5 @@ public class ChargeSessionInfo {
     private int transactionId;
     private PreparingTimer preparingTimer;
     private int startFullStationConsumedEnergy = 0;
+    private boolean isRemoteStart = false;
 }

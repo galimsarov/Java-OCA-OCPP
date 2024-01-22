@@ -244,7 +244,7 @@ public class HandlerImpl implements Handler {
                         RemoteStartTransactionConfirmation result =
                                 new RemoteStartTransactionConfirmation(remoteStartStatus);
                         if (remoteStartStatus.equals(RemoteStartStopStatus.Accepted)) {
-                            chargeSessionMap.addToChargeSessionMap(request.getConnectorId(), request.getIdTag());
+                            chargeSessionMap.addToChargeSessionMap(request.getConnectorId(), request.getIdTag(), true);
                         }
                         remoteStartStatus = null;
                         log.info("Sent to central system: " + result);

@@ -11,6 +11,7 @@ import eu.chargetime.ocpp.model.core.AuthorizeConfirmation;
 import eu.chargetime.ocpp.model.core.IdTagInfo;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.Handler;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
@@ -31,11 +32,15 @@ import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.*;
 public class AuthorizeImpl implements Authorize {
     private List<Map<String, Object>> authList = null;
     private final BootNotification bootNotification;
+    private final ChargeSessionMap chargeSessionMap;
     private final Handler handler;
     private final Sender sender;
 
-    public AuthorizeImpl(BootNotification bootNotification, Handler handler, Sender sender) {
+    public AuthorizeImpl(
+            BootNotification bootNotification, ChargeSessionMap chargeSessionMap, Handler handler, Sender sender
+    ) {
         this.bootNotification = bootNotification;
+        this.chargeSessionMap = chargeSessionMap;
         this.handler = handler;
         this.sender = sender;
     }
@@ -43,7 +48,7 @@ public class AuthorizeImpl implements Authorize {
     /**
      * Отправляет запрос на авторизацию в ЦС
      * @param parsedMessage запрос от сервиса в формате:
-     * ["myQueue1","71f599b2-b3f0-4680-b447-ae6d6dc0cc0c","Authorize",{"idTag":"button1"}]
+     * ["mainChargePointLogic","71f599b2-b3f0-4680-b447-ae6d6dc0cc0c","Authorize",{"idTag":"hhhh","connectorId":1}]
      * Формат ответа от steve:
      * AuthorizeConfirmation{idTagInfo=IdTagInfo{expiryDate="2024-01-10T11:12:02.925Z", parentIdTag=null, status=Accepted}, isValid=true}
      */
@@ -51,26 +56,32 @@ public class AuthorizeImpl implements Authorize {
     public void sendAuthorize(List<Object> parsedMessage) {
         String consumer = parsedMessage.get(0).toString();
         String requestUuid = parsedMessage.get(1).toString();
-        Map<String, String> idTagMap;
+        Map<String, Object> map;
         try {
-            idTagMap = (Map<String, String>) parsedMessage.get(3);
-            String idTag = idTagMap.get("idTag");
+            map = (Map<String, Object>) parsedMessage.get(3);
+            String idTag = map.get("idTag").toString();
+            int connectorId = -1;
+            try {
+                connectorId = Integer.parseInt(map.get("connectorId").toString());
+            } catch (NullPointerException ignored) {
 
+            }
             ClientCoreProfile core = handler.getCore();
             JSONClient client = bootNotification.getClient();
 
             if (client == null) {
                 log.warn("There is no connection to the central system. Auth list is used for authorization");
-                checkAuthWithDB(idTag, consumer, requestUuid);
+                checkAuthWithDB(idTag, consumer, requestUuid, connectorId);
             } else {
                 // Use the feature profile to help create event
                 Request request = core.createAuthorizeRequest(idTag);
                 log.info("Sent to central system: " + request.toString());
                 // Client returns a promise which will be filled once it receives a confirmation.
                 try {
+                    int finalConnectorId = connectorId;
                     client.send(request).whenComplete((confirmation, ex) -> {
                         log.info("Received from the central system: " + confirmation.toString());
-                        handleResponse(consumer, requestUuid, confirmation);
+                        handleResponse(consumer, requestUuid, confirmation, finalConnectorId, idTag);
                     });
                 } catch (OccurenceConstraintException | UnsupportedFeatureException ignored) {
                     log.warn("An error occurred while sending or processing authorize request");
@@ -90,7 +101,7 @@ public class AuthorizeImpl implements Authorize {
         }
     }
 
-    private void checkAuthWithDB(String idTag, String consumer, String requestUuid) {
+    private void checkAuthWithDB(String idTag, String consumer, String requestUuid, int connectorId) {
         sender.sendRequestToQueue(
                 bd.name(),
                 UUID.randomUUID().toString(),
@@ -109,7 +120,7 @@ public class AuthorizeImpl implements Authorize {
                 } else {
                     AuthorizeConfirmation confirmation = getAuthorizeConfirmation(idTag);
                     authList = null;
-                    handleResponse(consumer, requestUuid, confirmation);
+                    handleResponse(consumer, requestUuid, confirmation, connectorId, idTag);
                 }
             }
         };
@@ -156,10 +167,15 @@ public class AuthorizeImpl implements Authorize {
         return new AuthorizeConfirmation(idTagInfo);
     }
 
-    private void handleResponse(String consumer, String requestUuid, Confirmation confirmation) {
+    private void handleResponse(
+            String consumer, String requestUuid, Confirmation confirmation, int connectorId, String idTag
+    ) {
         AuthorizeConfirmation authorizeConfirmation = (AuthorizeConfirmation) confirmation;
         Map<String, String> result = new HashMap<>();
         result.put("status", authorizeConfirmation.getIdTagInfo().getStatus().name());
+        if (connectorId != -1) {
+            chargeSessionMap.addToChargeSessionMap(connectorId, idTag, false);
+        }
         sender.sendRequestToQueue(consumer, requestUuid, "", result, "");
     }
 }
