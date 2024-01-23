@@ -14,7 +14,7 @@ public class RabbitConfiguration {
     public ConnectionFactory connectionFactory() {
         // remote -> 10.10.254.39
         // local -> 192.168.6.100
-        CachingConnectionFactory connectionFactory = new CachingConnectionFactory("10.10.254.39");
+        CachingConnectionFactory connectionFactory = new CachingConnectionFactory("192.168.6.100");
         connectionFactory.setUsername("pss");
         connectionFactory.setPassword("p$$");
         connectionFactory.setConnectionTimeout(3000);

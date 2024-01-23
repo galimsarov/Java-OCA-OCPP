@@ -144,18 +144,16 @@ public class ListenerImpl implements Listener {
     }
 
     @Override
-    @RabbitListener(queues = "myQueue1")
+    // prod, test -> connectorsInfo
+    // dev -> myQueue1
+    @RabbitListener(queues = "connectorsInfo")
     public void processConnectorsInfo(String message) {
         log.info("Received from connectorsInfo queue: " + message);
         try {
             List<Map<String, Object>> parsedMessage = objectMapper.readValue(message, List.class);
             List<StatusNotificationRequest> possibleRequests = connectorsInfoCache.addToCache(parsedMessage);
             for (StatusNotificationRequest request : possibleRequests) {
-                if (bootNotification.getClient() == null) {
-                    log.warn("There is no connection to the central system. Can't send a status notification");
-                } else {
-                    statusNotification.sendStatusNotification(request);
-                }
+                statusNotification.sendStatusNotification(request);
                 if (request.getStatus().equals(Preparing) && chargeSessionMap.isRemoteStart(request.getId())) {
                     chargeSessionMap.stopPreparingTimer(request.getId());
                     if (chargeSessionMap.canSendStartTransaction(request.getId())) {

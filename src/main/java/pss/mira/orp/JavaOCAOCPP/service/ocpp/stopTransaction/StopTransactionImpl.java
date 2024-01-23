@@ -25,8 +25,10 @@ import java.util.UUID;
 import static eu.chargetime.ocpp.model.core.Reason.Other;
 import static eu.chargetime.ocpp.model.core.Reason.Remote;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.Change;
+import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.SaveToCache;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.transaction1;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Services.bd;
+import static pss.mira.orp.JavaOCAOCPP.models.enums.Queues.bd;
+import static pss.mira.orp.JavaOCAOCPP.models.enums.Queues.ocppCache;
 import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.formatStartStopTransactionDateTime;
 import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.formatStartStopTransactionDateTimeUTC;
 
@@ -74,21 +76,25 @@ public class StopTransactionImpl implements StopTransaction {
                 }
                 ClientCoreProfile core = handler.getCore();
                 JSONClient client = bootNotification.getClient();
+                // Use the feature profile to help create event
+                StopTransactionRequest request = core.createStopTransactionRequest(
+                        connectorsInfoCache.getFullStationConsumedEnergy(connectorId), ZonedDateTime.now(),
+                        chargeSessionMap.getChargeSessionInfo(connectorId).getTransactionId()
+                );
+                request.setReason(getReasonFromEnum(reason));
 
                 if (client == null) {
-                    log.warn("There is no connection to the central system. " +
-                            "The stop transaction message will be sent after the connection is restored");
-                    // TODO предусмотреть кэш для отправки сообщений после появления связи
-                } else {
-                    // Use the feature profile to help create event
-                    StopTransactionRequest stopTransactionRequest = core.createStopTransactionRequest(
-                            connectorsInfoCache.getFullStationConsumedEnergy(connectorId), ZonedDateTime.now(),
-                            chargeSessionMap.getChargeSessionInfo(connectorId).getTransactionId()
+                    sender.sendRequestToQueue(
+                            ocppCache.name(),
+                            UUID.randomUUID().toString(),
+                            SaveToCache.name(),
+                            request,
+                            "stopTransaction"
                     );
-                    stopTransactionRequest.setReason(getReasonFromEnum(reason));
+                } else {
                     // Client returns a promise which will be filled once it receives a confirmation.
                     try {
-                        client.send(stopTransactionRequest).whenComplete((confirmation, ex) -> {
+                        client.send(request).whenComplete((confirmation, ex) -> {
                             log.info("Received from the central system: " + confirmation);
                             handleResponse(consumer, requestUuid, confirmation, connectorId, reason);
                         });
@@ -117,21 +123,25 @@ public class StopTransactionImpl implements StopTransaction {
     public void sendRemoteStop(int connectorId) {
         ClientCoreProfile core = handler.getCore();
         JSONClient client = bootNotification.getClient();
+        // Use the feature profile to help create event
+        StopTransactionRequest request = core.createStopTransactionRequest(
+                connectorsInfoCache.getFullStationConsumedEnergy(connectorId), ZonedDateTime.now(),
+                chargeSessionMap.getChargeSessionInfo(connectorId).getTransactionId()
+        );
+        request.setReason(Remote);
 
         if (client == null) {
-            log.warn("There is no connection to the central system. " +
-                    "The stop transaction message will be sent after the connection is restored");
-            // TODO предусмотреть кэш для отправки сообщений после появления связи
-        } else {
-            // Use the feature profile to help create event
-            StopTransactionRequest stopTransactionRequest = core.createStopTransactionRequest(
-                    connectorsInfoCache.getFullStationConsumedEnergy(connectorId), ZonedDateTime.now(),
-                    chargeSessionMap.getChargeSessionInfo(connectorId).getTransactionId()
+            sender.sendRequestToQueue(
+                    ocppCache.name(),
+                    UUID.randomUUID().toString(),
+                    SaveToCache.name(),
+                    request,
+                    "stopTransaction"
             );
-            stopTransactionRequest.setReason(Remote);
+        } else {
             // Client returns a promise which will be filled once it receives a confirmation.
             try {
-                client.send(stopTransactionRequest).whenComplete((confirmation, ex) -> {
+                client.send(request).whenComplete((confirmation, ex) -> {
                     log.info("Received from the central system: " + confirmation);
                     handleResponse("", "", confirmation, connectorId, Remote.name());
                 });

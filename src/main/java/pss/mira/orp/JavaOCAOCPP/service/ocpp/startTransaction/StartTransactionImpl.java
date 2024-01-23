@@ -24,8 +24,10 @@ import java.util.*;
 
 import static eu.chargetime.ocpp.model.core.AuthorizationStatus.Accepted;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.Change;
+import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.SaveToCache;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.transaction1;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Services.bd;
+import static pss.mira.orp.JavaOCAOCPP.models.enums.Queues.bd;
+import static pss.mira.orp.JavaOCAOCPP.models.enums.Queues.ocppCache;
 import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.*;
 
 @Service
@@ -68,18 +70,21 @@ public class StartTransactionImpl implements StartTransaction {
 
             ClientCoreProfile core = handler.getCore();
             JSONClient client = bootNotification.getClient();
-
+            // Use the feature profile to help create event
+            Request request = core.createStartTransactionRequest(
+                    connectorId, idTag,
+                    connectorsInfoCache.getFullStationConsumedEnergy(connectorId),
+                    ZonedDateTime.now()
+            );
             if (client == null) {
-                log.warn("There is no connection to the central system. " +
-                        "The start transaction message will be sent after the connection is restored");
-                // TODO предусмотреть кэш для отправки сообщений после появления связи
-            } else {
-                // Use the feature profile to help create event
-                Request request = core.createStartTransactionRequest(
-                        connectorId, idTag,
-                        connectorsInfoCache.getFullStationConsumedEnergy(connectorId),
-                        ZonedDateTime.now()
+                sender.sendRequestToQueue(
+                        ocppCache.name(),
+                        UUID.randomUUID().toString(),
+                        SaveToCache.name(),
+                        request,
+                        "startTransaction"
                 );
+            } else {
                 log.info("Sent to central system: " + request.toString());
                 // Client returns a promise which will be filled once it receives a confirmation.
                 try {

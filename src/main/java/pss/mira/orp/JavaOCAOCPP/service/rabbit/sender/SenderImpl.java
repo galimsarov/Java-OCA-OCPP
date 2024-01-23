@@ -11,7 +11,7 @@ import pss.mira.orp.JavaOCAOCPP.service.cache.request.RequestCache;
 import java.util.Date;
 import java.util.List;
 
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Services.ocpp;
+import static pss.mira.orp.JavaOCAOCPP.models.enums.Queues.ocpp;
 import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.formatHeartbeatDateTime;
 
 @Service

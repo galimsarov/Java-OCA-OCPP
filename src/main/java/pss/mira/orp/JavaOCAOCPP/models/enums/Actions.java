@@ -1,15 +1,15 @@
 package pss.mira.orp.JavaOCAOCPP.models.enums;
 
 public enum Actions {
-
     // bd
     Change,
     Get,
-    // cp
+    // mainChargePointLogic
     RemoteStartTransaction,
     RemoteStopTransaction,
     // ocpp, то есть, сам себе
     Authorize,
+    SaveToCache,
     // ModBus
     ChangeAvailability
 }

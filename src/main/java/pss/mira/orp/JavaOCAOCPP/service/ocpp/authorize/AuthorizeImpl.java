@@ -24,7 +24,7 @@ import java.util.UUID;
 import static eu.chargetime.ocpp.model.core.AuthorizationStatus.Invalid;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.Get;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.auth_list;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Services.bd;
+import static pss.mira.orp.JavaOCAOCPP.models.enums.Queues.bd;
 import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.*;
 
 @Service

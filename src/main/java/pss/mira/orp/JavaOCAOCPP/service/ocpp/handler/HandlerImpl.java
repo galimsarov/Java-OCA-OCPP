@@ -20,7 +20,7 @@ import static eu.chargetime.ocpp.model.core.ConfigurationStatus.NotSupported;
 import static eu.chargetime.ocpp.model.core.RemoteStartStopStatus.Rejected;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.*;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.*;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Services.*;
+import static pss.mira.orp.JavaOCAOCPP.models.enums.Queues.*;
 import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.getDBTablesGetRequest;
 import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.getResult;
 
@@ -224,7 +224,7 @@ public class HandlerImpl implements Handler {
                         Map<String, Integer> map = new HashMap<>();
                         map.put("connectorId", request.getConnectorId());
                         sender.sendRequestToQueue(
-                                cp.name(),
+                                mainChargePointLogic.name(),
                                 UUID.randomUUID().toString(),
                                 RemoteStartTransaction.name(),
                                 map,
@@ -269,7 +269,7 @@ public class HandlerImpl implements Handler {
             ) {
                 log.info("Received from the central system: " + request.toString());
                 sender.sendRequestToQueue(
-                        cp.name(),
+                        mainChargePointLogic.name(),
                         UUID.randomUUID().toString(),
                         RemoteStopTransaction.name(),
                         request,

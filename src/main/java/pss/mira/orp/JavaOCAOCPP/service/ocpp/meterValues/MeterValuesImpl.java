@@ -19,9 +19,11 @@ import java.util.*;
 
 import static eu.chargetime.ocpp.model.core.ValueFormat.Raw;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.Get;
+import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.SaveToCache;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.configuration;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.getConfigurationForMeterValues;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Services.bd;
+import static pss.mira.orp.JavaOCAOCPP.models.enums.Queues.bd;
+import static pss.mira.orp.JavaOCAOCPP.models.enums.Queues.ocppCache;
 import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.getDBTablesGetRequest;
 import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.getResult;
 
@@ -139,15 +141,24 @@ public class MeterValuesImpl implements MeterValues {
         // Use the feature profile to help create event
         MeterValuesRequest request = core.createMeterValuesRequest(connectorId, ZonedDateTime.now(), sampledValues);
         request.setTransactionId(transactionId);
-        log.info("Ready to send meter values: " + request);
-
-        // Client returns a promise which will be filled once it receives a confirmation.
-        try {
-            client.send(request).whenComplete((confirmation, ex) -> {
-                log.info("Received from the central system: " + confirmation.toString());
-            });
-        } catch (OccurenceConstraintException | UnsupportedFeatureException ignored) {
-            log.warn("An error occurred while sending or processing meter value request");
+        if (client == null) {
+            sender.sendRequestToQueue(
+                    ocppCache.name(),
+                    UUID.randomUUID().toString(),
+                    SaveToCache.name(),
+                    request,
+                    "meterValues"
+            );
+        } else {
+            log.info("Ready to send meter values: " + request);
+            // Client returns a promise which will be filled once it receives a confirmation.
+            try {
+                client.send(request).whenComplete((confirmation, ex) -> {
+                    log.info("Received from the central system: " + confirmation.toString());
+                });
+            } catch (OccurenceConstraintException | UnsupportedFeatureException ignored) {
+                log.warn("An error occurred while sending or processing meter value request");
+            }
         }
     }
 
