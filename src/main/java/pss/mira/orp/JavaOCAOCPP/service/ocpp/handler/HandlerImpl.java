@@ -4,12 +4,14 @@ import eu.chargetime.ocpp.feature.profile.ClientCoreEventHandler;
 import eu.chargetime.ocpp.feature.profile.ClientCoreProfile;
 import eu.chargetime.ocpp.model.core.*;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.SystemUtils;
 import org.springframework.stereotype.Service;
 import pss.mira.orp.JavaOCAOCPP.models.requests.rabbit.DBTablesChangeRequest;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +21,7 @@ import static eu.chargetime.ocpp.model.core.AuthorizationStatus.Accepted;
 import static eu.chargetime.ocpp.model.core.AuthorizationStatus.Invalid;
 import static eu.chargetime.ocpp.model.core.ConfigurationStatus.NotSupported;
 import static eu.chargetime.ocpp.model.core.RemoteStartStopStatus.Rejected;
+import static eu.chargetime.ocpp.model.core.ResetType.Soft;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.*;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.*;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Queues.*;
@@ -324,9 +327,47 @@ public class HandlerImpl implements Handler {
                     }
                 }
                 ResetConfirmation result = new ResetConfirmation(resetStatus);
+                if (request.getType().equals(Soft) && resetStatus.equals(ResetStatus.Accepted)) {
+                    log.warn("The application will restart at the end of all charging sessions");
+                    restartService();
+                }
                 resetStatus = null;
                 log.info("Sent to central system: " + result);
                 return result;
+            }
+
+            private void restartService() {
+                Runnable restartTask = () -> {
+                    while (true) {
+                        if (chargeSessionMap.isNotEmpty()) {
+                            try {
+                                Thread.sleep(1000);
+                            } catch (InterruptedException e) {
+                                log.error("Аn error while waiting for a restart");
+                            }
+                        } else {
+                            break;
+                        }
+                    }
+                    if (SystemUtils.IS_OS_WINDOWS) {
+                        log.error("Application restart doesn't support in windows");
+                        return;
+                    }
+                    int restartTries = 10;
+                    for (int i = 0; i < restartTries; i++) {
+                        log.info("Try to restart #{}", i);
+                        try {
+                            log.info("Restarting...");
+                            Runtime.getRuntime().exec("sudo systemctl restart ocpp-service.service");
+                            return; // По идее уже вырубится приложение, но на всякий return
+                        } catch (IOException e) {
+                            log.error("Аn error while trying to restart");
+                        }
+                    }
+                    log.warn("System wasn't restarted in {} tries!", restartTries);
+                };
+                Thread restartThread = new Thread(restartTask);
+                restartThread.start();
             }
 
             @Override

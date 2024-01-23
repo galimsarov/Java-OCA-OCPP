@@ -31,4 +31,6 @@ public interface ChargeSessionMap {
     boolean isRemoteStop(int connectorId);
 
     void deleteNotStartedRemoteTransactions();
+
+    boolean isNotEmpty();
 }

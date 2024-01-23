@@ -156,7 +156,7 @@ public class ListenerImpl implements Listener {
     @Override
     // prod, test -> connectorsInfo
     // dev -> myQueue1
-    @RabbitListener(queues = "connectorsInfo")
+    @RabbitListener(queues = "myQueue1")
     public void processConnectorsInfo(String message) {
         log.info("Received from connectorsInfo queue: " + message);
         try {

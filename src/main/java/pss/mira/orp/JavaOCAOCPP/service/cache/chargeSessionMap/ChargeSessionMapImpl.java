@@ -111,4 +111,9 @@ public class ChargeSessionMapImpl implements ChargeSessionMap {
             map.remove(key);
         }
     }
+
+    @Override
+    public boolean isNotEmpty() {
+        return !map.isEmpty();
+    }
 }
