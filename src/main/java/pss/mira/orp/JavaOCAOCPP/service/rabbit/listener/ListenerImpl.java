@@ -116,6 +116,9 @@ public class ListenerImpl implements Listener {
                                     statusNotification.sendStatusNotification(request);
                                 }
                                 break;
+                            case ("Reset"):
+                                handler.setResetStatus(parsedMessage);
+                                break;
                         }
                         requestCache.removeFromCache(uuid);
                     }

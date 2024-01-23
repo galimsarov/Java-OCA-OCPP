@@ -7,6 +7,7 @@ public enum Actions {
     // mainChargePointLogic
     RemoteStartTransaction,
     RemoteStopTransaction,
+    Reset,
     // ocpp, то есть, сам себе
     Authorize,
     SaveToCache,

@@ -16,4 +16,6 @@ public interface Handler {
     void setAuthorizeConfirmation(List<Object> parsedMessage);
 
     void setRemoteStartStopStatus(List<Object> parsedMessage, String type);
+
+    void setResetStatus(List<Object> parsedMessage);
 }

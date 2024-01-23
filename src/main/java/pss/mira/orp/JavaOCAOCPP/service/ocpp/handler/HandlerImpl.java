@@ -37,6 +37,7 @@ public class HandlerImpl implements Handler {
     private AuthorizeConfirmation authorizeConfirmation = null;
     private RemoteStartStopStatus remoteStartStatus = null;
     private RemoteStartStopStatus remoteStopStatus = null;
+    private ResetStatus resetStatus = null;
 
     public HandlerImpl(ConnectorsInfoCache connectorsInfoCache, ChargeSessionMap chargeSessionMap, Sender sender) {
         this.connectorsInfoCache = connectorsInfoCache;
@@ -227,7 +228,7 @@ public class HandlerImpl implements Handler {
                         Map<String, Integer> map = new HashMap<>();
                         map.put("connectorId", request.getConnectorId());
                         sender.sendRequestToQueue(
-                                mainChargePointLogic.name(),
+                                cp.name(),
                                 UUID.randomUUID().toString(),
                                 RemoteStartTransaction.name(),
                                 map,
@@ -275,7 +276,7 @@ public class HandlerImpl implements Handler {
             ) {
                 log.info("Received from the central system: " + request.toString());
                 sender.sendRequestToQueue(
-                        mainChargePointLogic.name(),
+                        cp.name(),
                         UUID.randomUUID().toString(),
                         RemoteStopTransaction.name(),
                         request,
@@ -286,7 +287,7 @@ public class HandlerImpl implements Handler {
                         try {
                             Thread.sleep(1000);
                         } catch (InterruptedException e) {
-                            log.error("Аn error while waiting for remote start transaction response");
+                            log.error("Аn error while waiting for remote stop transaction response");
                         }
                     } else {
                         break;
@@ -303,11 +304,29 @@ public class HandlerImpl implements Handler {
 
             @Override
             public ResetConfirmation handleResetRequest(ResetRequest request) {
-
-                log.info(request.toString());
-                // ... handle event
-
-                return null; // returning null means unsupported feature
+                log.info("Received from the central system: " + request.toString());
+                sender.sendRequestToQueue(
+                        cp.name(),
+                        UUID.randomUUID().toString(),
+                        Reset.name(),
+                        request,
+                        Reset.name()
+                );
+                while (true) {
+                    if (resetStatus == null) {
+                        try {
+                            Thread.sleep(1000);
+                        } catch (InterruptedException e) {
+                            log.error("Аn error while waiting for remote start transaction response");
+                        }
+                    } else {
+                        break;
+                    }
+                }
+                ResetConfirmation result = new ResetConfirmation(resetStatus);
+                resetStatus = null;
+                log.info("Sent to central system: " + result);
+                return result;
             }
 
             @Override
@@ -404,6 +423,16 @@ public class HandlerImpl implements Handler {
             } else {
                 remoteStopStatus = RemoteStartStopStatus.Rejected;
             }
+        }
+    }
+
+    @Override
+    public void setResetStatus(List<Object> parsedMessage) {
+        Map<String, String> resetMap = (Map<String, String>) parsedMessage.get(2);
+        if (resetMap.get("status").equals(ResetStatus.Accepted.name())) {
+            resetStatus = ResetStatus.Accepted;
+        } else {
+            resetStatus = ResetStatus.Rejected;
         }
     }
 }
