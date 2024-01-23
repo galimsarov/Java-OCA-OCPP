@@ -1,9 +1,12 @@
 package pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap;
 
+import eu.chargetime.ocpp.model.core.ChargePointStatus;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.chargeSessionInfo.ChargeSessionInfo;
 
 public interface ChargeSessionMap {
-    void addToChargeSessionMap(int connectorId, String idTag, boolean isRemoteStart);
+    void addToChargeSessionMap(
+            int connectorId, String idTag, boolean isRemoteStart, ChargePointStatus chargePointStatus
+    );
 
     ChargeSessionInfo getChargeSessionInfo(int connectorId);
 
@@ -26,4 +29,6 @@ public interface ChargeSessionMap {
     void setRemoteStopByTransactionId(int transactionId);
 
     boolean isRemoteStop(int connectorId);
+
+    void deleteNotStartedRemoteTransactions();
 }

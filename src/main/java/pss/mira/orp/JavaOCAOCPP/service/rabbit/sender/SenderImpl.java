@@ -1,7 +1,6 @@
 package pss.mira.orp.JavaOCAOCPP.service.rabbit.sender;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.gson.Gson;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
@@ -38,15 +37,11 @@ public class SenderImpl implements Sender {
             request = List.of(ocpp.name(), uuid, action, body);
             requestCache.addToCache(request, requestType);
         }
-        try {
-            String message = (new ObjectMapper()).writeValueAsString(request);
-            log.info("Send message in Queue witch listen " + key);
-            log.info("Sending message: " + message);
-            template.setExchange(exchange);
-            template.convertAndSend(key, message);
-        } catch (JsonProcessingException ignored) {
-            log.error("Error when sending a request to the " + key);
-        }
+        String message = (new Gson()).toJson(request);
+        log.info("Send message in Queue witch listen " + key);
+        log.info("Sending message: " + message);
+        template.setExchange(exchange);
+        template.convertAndSend(key, message);
     }
 
     @Override

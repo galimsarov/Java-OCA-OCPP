@@ -8,6 +8,8 @@ import java.util.Map;
 public interface ConnectorsInfoCache {
     List<StatusNotificationRequest> addToCache(List<Map<String, Object>> connectorsInfo);
 
+    List<StatusNotificationRequest> createCache(List<Object> parsedMessage);
+
     boolean stationIsCharging();
 
     boolean isEmpty();

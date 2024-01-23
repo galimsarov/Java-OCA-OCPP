@@ -109,6 +109,13 @@ public class ListenerImpl implements Listener {
                             case ("RemoteStopTransaction"):
                                 handler.setRemoteStartStopStatus(parsedMessage, "stop");
                                 break;
+                            case ("GetConnectorsInfo"):
+                                List<StatusNotificationRequest> possibleRequests =
+                                        connectorsInfoCache.createCache(parsedMessage);
+                                for (StatusNotificationRequest request : possibleRequests) {
+                                    statusNotification.sendStatusNotification(request);
+                                }
+                                break;
                         }
                         requestCache.removeFromCache(uuid);
                     }
@@ -160,6 +167,10 @@ public class ListenerImpl implements Listener {
                         startTransaction.sendStartTransaction(chargeSessionMap.getChargeSessionInfo(request.getId()));
                     }
                 }
+                if (request.getStatus().equals(Charging) && chargeSessionMap.isRemoteStart(request.getId()) &&
+                        (chargeSessionMap.getChargeSessionInfo(request.getId()).getPreparingTimer() == null)) {
+                    startTransaction.sendStartTransaction(chargeSessionMap.getChargeSessionInfo(request.getId()));
+                }
                 if (request.getStatus().equals(Charging) && !chargeSessionMap.isRemoteStart(request.getId())) {
                     startTransaction.sendStartTransaction(chargeSessionMap.getChargeSessionInfo(request.getId()));
                 }
@@ -173,5 +184,6 @@ public class ListenerImpl implements Listener {
         } catch (Exception e) {
             log.error("Error when parsing a message from the broker");
         }
+        chargeSessionMap.deleteNotStartedRemoteTransactions();
     }
 }

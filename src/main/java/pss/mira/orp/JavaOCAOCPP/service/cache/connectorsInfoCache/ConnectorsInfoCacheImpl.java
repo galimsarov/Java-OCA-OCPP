@@ -54,6 +54,12 @@ public class ConnectorsInfoCacheImpl implements ConnectorsInfoCache {
         return result;
     }
 
+    @Override
+    public List<StatusNotificationRequest> createCache(List<Object> parsedMessage) {
+        Map<String, List<Map<String, Object>>> map = (Map<String, List<Map<String, Object>>>) parsedMessage.get(2);
+        return addToCache(map.get("connectors"));
+    }
+
     private void addToResult(String newError, String newStatus, List<StatusNotificationRequest> result, int id) {
         ChargePointErrorCode parsedCode = getErrorCode(newError);
         ChargePointStatus parsedStatus = getChargePointStatus(newStatus);

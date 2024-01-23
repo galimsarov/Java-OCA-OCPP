@@ -12,6 +12,7 @@ import eu.chargetime.ocpp.model.core.IdTagInfo;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
+import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.Handler;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
@@ -32,14 +33,20 @@ import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.*;
 public class AuthorizeImpl implements Authorize {
     private List<Map<String, Object>> authList = null;
     private final BootNotification bootNotification;
+    private final ConnectorsInfoCache connectorsInfoCache;
     private final ChargeSessionMap chargeSessionMap;
     private final Handler handler;
     private final Sender sender;
 
     public AuthorizeImpl(
-            BootNotification bootNotification, ChargeSessionMap chargeSessionMap, Handler handler, Sender sender
+            BootNotification bootNotification,
+            ConnectorsInfoCache connectorsInfoCache,
+            ChargeSessionMap chargeSessionMap,
+            Handler handler,
+            Sender sender
     ) {
         this.bootNotification = bootNotification;
+        this.connectorsInfoCache = connectorsInfoCache;
         this.chargeSessionMap = chargeSessionMap;
         this.handler = handler;
         this.sender = sender;
@@ -171,10 +178,12 @@ public class AuthorizeImpl implements Authorize {
             String consumer, String requestUuid, Confirmation confirmation, int connectorId, String idTag
     ) {
         AuthorizeConfirmation authorizeConfirmation = (AuthorizeConfirmation) confirmation;
-        Map<String, String> result = new HashMap<>();
+        Map<String, Object> result = new HashMap<>();
         result.put("status", authorizeConfirmation.getIdTagInfo().getStatus().name());
+        result.put("connectorId", connectorId);
         if (connectorId != -1) {
-            chargeSessionMap.addToChargeSessionMap(connectorId, idTag, false);
+            chargeSessionMap.addToChargeSessionMap(connectorId, idTag, false,
+                    connectorsInfoCache.getStatusNotificationRequest(connectorId).getStatus());
         }
         sender.sendRequestToQueue(consumer, requestUuid, "", result, "");
     }

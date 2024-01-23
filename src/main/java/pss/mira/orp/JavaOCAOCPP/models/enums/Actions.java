@@ -11,5 +11,6 @@ public enum Actions {
     Authorize,
     SaveToCache,
     // ModBus
-    ChangeAvailability
+    ChangeAvailability,
+    GetConnectorsInfo
 }

@@ -1,22 +1,29 @@
 package pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap;
 
+import eu.chargetime.ocpp.model.core.ChargePointStatus;
 import org.springframework.stereotype.Service;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.chargeSessionInfo.ChargeSessionInfo;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.chargeSessionInfo.PreparingTimer;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+
+import static eu.chargetime.ocpp.model.core.ChargePointStatus.Available;
 
 @Service
 public class ChargeSessionMapImpl implements ChargeSessionMap {
     private final Map<Integer, ChargeSessionInfo> map = new HashMap<>();
 
     @Override
-    public void addToChargeSessionMap(int connectorId, String idTag, boolean isRemoteStart) {
+    public void addToChargeSessionMap(
+            int connectorId, String idTag, boolean isRemoteStart, ChargePointStatus chargePointStatus
+    ) {
         ChargeSessionInfo chargeSessionInfo = new ChargeSessionInfo();
         chargeSessionInfo.setConnectorId(connectorId);
         chargeSessionInfo.setIdTag(idTag);
-        if (isRemoteStart) {
+        if (isRemoteStart && chargePointStatus.equals(Available)) {
             chargeSessionInfo.setPreparingTimer(new PreparingTimer());
         }
         chargeSessionInfo.setRemoteStart(isRemoteStart);
@@ -90,5 +97,18 @@ public class ChargeSessionMapImpl implements ChargeSessionMap {
     @Override
     public boolean isRemoteStop(int connectorId) {
         return map.get(connectorId).isRemoteStop();
+    }
+
+    @Override
+    public void deleteNotStartedRemoteTransactions() {
+        List<Integer> keys = new ArrayList<>();
+        for (Map.Entry<Integer, ChargeSessionInfo> entry : map.entrySet()) {
+            if ((entry.getValue().getPreparingTimer() != null) && (entry.getValue().getPreparingTimer().isCanBeRemoved())) {
+                keys.add(entry.getKey());
+            }
+        }
+        for (int key : keys) {
+            map.remove(key);
+        }
     }
 }

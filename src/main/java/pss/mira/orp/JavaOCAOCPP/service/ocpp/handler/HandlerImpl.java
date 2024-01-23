@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import pss.mira.orp.JavaOCAOCPP.models.requests.rabbit.DBTablesChangeRequest;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
+import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 
 import java.util.HashMap;
@@ -27,6 +28,7 @@ import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.getResult;
 @Service
 @Slf4j
 public class HandlerImpl implements Handler {
+    private final ConnectorsInfoCache connectorsInfoCache;
     private final ChargeSessionMap chargeSessionMap;
     private final Sender sender;
     private AvailabilityStatus availabilityStatus = null;
@@ -36,7 +38,8 @@ public class HandlerImpl implements Handler {
     private RemoteStartStopStatus remoteStartStatus = null;
     private RemoteStartStopStatus remoteStopStatus = null;
 
-    public HandlerImpl(ChargeSessionMap chargeSessionMap, Sender sender) {
+    public HandlerImpl(ConnectorsInfoCache connectorsInfoCache, ChargeSessionMap chargeSessionMap, Sender sender) {
+        this.connectorsInfoCache = connectorsInfoCache;
         this.chargeSessionMap = chargeSessionMap;
         this.sender = sender;
     }
@@ -244,7 +247,10 @@ public class HandlerImpl implements Handler {
                         RemoteStartTransactionConfirmation result =
                                 new RemoteStartTransactionConfirmation(remoteStartStatus);
                         if (remoteStartStatus.equals(RemoteStartStopStatus.Accepted)) {
-                            chargeSessionMap.addToChargeSessionMap(request.getConnectorId(), request.getIdTag(), true);
+                            chargeSessionMap.addToChargeSessionMap(
+                                    request.getConnectorId(), request.getIdTag(), true,
+                                    connectorsInfoCache.getStatusNotificationRequest(request.getConnectorId()).getStatus()
+                            );
                         }
                         remoteStartStatus = null;
                         log.info("Sent to central system: " + result);

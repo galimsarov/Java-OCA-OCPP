@@ -5,9 +5,9 @@ import eu.chargetime.ocpp.OccurenceConstraintException;
 import eu.chargetime.ocpp.UnsupportedFeatureException;
 import eu.chargetime.ocpp.feature.profile.ClientCoreProfile;
 import eu.chargetime.ocpp.model.Confirmation;
-import eu.chargetime.ocpp.model.Request;
 import eu.chargetime.ocpp.model.core.IdTagInfo;
 import eu.chargetime.ocpp.model.core.StartTransactionConfirmation;
+import eu.chargetime.ocpp.model.core.StartTransactionRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import pss.mira.orp.JavaOCAOCPP.models.requests.rabbit.DBTablesChangeRequest;
@@ -71,12 +71,13 @@ public class StartTransactionImpl implements StartTransaction {
             ClientCoreProfile core = handler.getCore();
             JSONClient client = bootNotification.getClient();
             // Use the feature profile to help create event
-            Request request = core.createStartTransactionRequest(
+            StartTransactionRequest request = core.createStartTransactionRequest(
                     connectorId, idTag,
                     connectorsInfoCache.getFullStationConsumedEnergy(connectorId),
                     ZonedDateTime.now()
             );
             if (client == null) {
+                request.setTimestamp(null);
                 sender.sendRequestToQueue(
                         ocppCache.name(),
                         UUID.randomUUID().toString(),
