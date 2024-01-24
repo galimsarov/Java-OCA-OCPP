@@ -13,7 +13,7 @@ import pss.mira.orp.JavaOCAOCPP.models.requests.rabbit.DBTablesChangeRequest;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
-import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.Handler;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.core.CoreHandler;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 
 import java.time.ZonedDateTime;
@@ -38,20 +38,20 @@ public class StopTransactionImpl implements StopTransaction {
     private final BootNotification bootNotification;
     private final ChargeSessionMap chargeSessionMap;
     private final ConnectorsInfoCache connectorsInfoCache;
-    private final Handler handler;
+    private final CoreHandler coreHandler;
     private final Sender sender;
 
     public StopTransactionImpl(
             BootNotification bootNotification,
             ChargeSessionMap chargeSessionMap,
             ConnectorsInfoCache connectorsInfoCache,
-            Handler handler,
+            CoreHandler coreHandler,
             Sender sender
     ) {
         this.bootNotification = bootNotification;
         this.chargeSessionMap = chargeSessionMap;
         this.connectorsInfoCache = connectorsInfoCache;
-        this.handler = handler;
+        this.coreHandler = coreHandler;
         this.sender = sender;
     }
 
@@ -74,7 +74,7 @@ public class StopTransactionImpl implements StopTransaction {
                         break;
                     }
                 }
-                ClientCoreProfile core = handler.getCore();
+                ClientCoreProfile core = coreHandler.getCore();
                 JSONClient client = bootNotification.getClient();
                 // Use the feature profile to help create event
                 StopTransactionRequest request = core.createStopTransactionRequest(
@@ -121,7 +121,7 @@ public class StopTransactionImpl implements StopTransaction {
 
     @Override
     public void sendRemoteStop(int connectorId) {
-        ClientCoreProfile core = handler.getCore();
+        ClientCoreProfile core = coreHandler.getCore();
         JSONClient client = bootNotification.getClient();
         // Use the feature profile to help create event
         StopTransactionRequest request = core.createStopTransactionRequest(

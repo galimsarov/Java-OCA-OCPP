@@ -165,4 +165,9 @@ public class ConnectorsInfoCacheImpl implements ConnectorsInfoCache {
     public boolean isCharging(int connectorId) {
         return connectorsMap.get(connectorId).get("status").toString().equals("Charging");
     }
+
+    @Override
+    public String getStatus(int connectorId) {
+        return connectorsMap.get(connectorId).get("status").toString();
+    }
 }

@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
-import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.Handler;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.core.CoreHandler;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 
 import java.time.ZonedDateTime;
@@ -33,7 +33,7 @@ public class MeterValuesImpl implements MeterValues {
     private final BootNotification bootNotification;
     private final ChargeSessionMap chargeSessionMap;
     private final ConnectorsInfoCache connectorsInfoCache;
-    private final Handler handler;
+    private final CoreHandler coreHandler;
     private final Sender sender;
     private final Set<Integer> chargingConnectors = new HashSet<>();
     private List<Map<String, Object>> configurationList = null;
@@ -42,13 +42,13 @@ public class MeterValuesImpl implements MeterValues {
             BootNotification bootNotification,
             ChargeSessionMap chargeSessionMap,
             ConnectorsInfoCache connectorsInfoCache,
-            Handler handler,
+            CoreHandler coreHandler,
             Sender sender
     ) {
         this.bootNotification = bootNotification;
         this.chargeSessionMap = chargeSessionMap;
         this.connectorsInfoCache = connectorsInfoCache;
-        this.handler = handler;
+        this.coreHandler = coreHandler;
         this.sender = sender;
     }
 
@@ -134,7 +134,7 @@ public class MeterValuesImpl implements MeterValues {
     }
 
     private void sendMeterValues(int connectorId, String meterValuesSampledData, String context, int transactionId) {
-        ClientCoreProfile core = handler.getCore();
+        ClientCoreProfile core = coreHandler.getCore();
         JSONClient client = bootNotification.getClient();
         SampledValue[] sampledValues = getSampledValues(meterValuesSampledData, connectorId, context);
 

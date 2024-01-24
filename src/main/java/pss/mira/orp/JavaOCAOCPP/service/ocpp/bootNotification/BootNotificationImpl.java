@@ -12,7 +12,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import pss.mira.orp.JavaOCAOCPP.models.requests.ocpp.BootNotificationRequest;
-import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.Handler;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.core.CoreHandler;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.reservation.ReservationHandler;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.heartBeat.Heartbeat;
 import pss.mira.orp.JavaOCAOCPP.service.pc.TimeSetter;
 
@@ -23,7 +24,8 @@ import static eu.chargetime.ocpp.model.core.RegistrationStatus.Accepted;
 @Service
 @Slf4j
 public class BootNotificationImpl implements BootNotification {
-    private final Handler handler;
+    private final CoreHandler coreHandler;
+    private final ReservationHandler reservationHandler;
     private final Heartbeat heartbeat;
     private final TimeSetter timeSetter;
 
@@ -31,8 +33,11 @@ public class BootNotificationImpl implements BootNotification {
     @Value("${vendor.name}")
     private String vendorName;
 
-    public BootNotificationImpl(Handler handler, Heartbeat heartbeat, TimeSetter timeSetter) {
-        this.handler = handler;
+    public BootNotificationImpl(
+            CoreHandler coreHandler, ReservationHandler reservationHandler, Heartbeat heartbeat, TimeSetter timeSetter
+    ) {
+        this.coreHandler = coreHandler;
+        this.reservationHandler = reservationHandler;
         this.heartbeat = heartbeat;
         this.timeSetter = timeSetter;
     }
@@ -64,8 +69,9 @@ public class BootNotificationImpl implements BootNotification {
                 );
             }
 
-            ClientCoreProfile core = handler.getCore();
+            ClientCoreProfile core = coreHandler.getCore();
             JSONClient jsonClient = new JSONClient(core, bootNotificationRequest.getChargePointID());
+            jsonClient.addFeatureProfile(reservationHandler.getReservation());
 
             final boolean[] connectionOpened = {false};
             while (true) {
@@ -134,7 +140,7 @@ public class BootNotificationImpl implements BootNotification {
                 } catch (InterruptedException e) {
                     log.error("Аn error while waiting for a ocpp heartbeat to be sent");
                 }
-                heartbeat.sendHeartbeat(handler.getCore(), getClient());
+                heartbeat.sendHeartbeat(coreHandler.getCore(), getClient());
             }
         };
         return new Thread(runHeartbeat);

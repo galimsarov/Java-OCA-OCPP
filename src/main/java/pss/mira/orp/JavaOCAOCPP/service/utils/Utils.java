@@ -66,4 +66,13 @@ public class Utils {
             return ZonedDateTime.of(dateTime, ZoneId.of("UTC"));
         }
     }
+
+    public static String getStringDateForReservation(ZonedDateTime zonedDateTime) {
+        if (zonedDateTime == null) {
+            return "";
+        } else {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+            return zonedDateTime.format(formatter);
+        }
+    }
 }

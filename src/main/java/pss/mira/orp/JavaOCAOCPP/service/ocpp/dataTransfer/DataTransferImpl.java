@@ -10,7 +10,7 @@ import eu.chargetime.ocpp.model.core.DataTransferRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
-import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.Handler;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.core.CoreHandler;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 
 import java.util.HashMap;
@@ -21,12 +21,12 @@ import java.util.Map;
 @Slf4j
 public class DataTransferImpl implements DataTransfer {
     private final BootNotification bootNotification;
-    private final Handler handler;
+    private final CoreHandler coreHandler;
     private final Sender sender;
 
-    public DataTransferImpl(BootNotification bootNotification, Handler handler, Sender sender) {
+    public DataTransferImpl(BootNotification bootNotification, CoreHandler coreHandler, Sender sender) {
         this.bootNotification = bootNotification;
-        this.handler = handler;
+        this.coreHandler = coreHandler;
         this.sender = sender;
     }
 
@@ -55,7 +55,7 @@ public class DataTransferImpl implements DataTransfer {
 
             }
 
-            ClientCoreProfile core = handler.getCore();
+            ClientCoreProfile core = coreHandler.getCore();
             JSONClient client = bootNotification.getClient();
 
             if (client == null) {

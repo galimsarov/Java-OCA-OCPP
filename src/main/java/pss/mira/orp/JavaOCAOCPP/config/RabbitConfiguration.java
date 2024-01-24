@@ -12,9 +12,9 @@ import org.springframework.context.annotation.Configuration;
 public class RabbitConfiguration {
     @Bean
     public ConnectionFactory connectionFactory() {
-        // remote -> 10.10.254.39
-        // local -> 192.168.6.100
-        CachingConnectionFactory connectionFactory = new CachingConnectionFactory("192.168.6.100");
+        // remote -> 10.10.254.40
+        // local -> 192.168.6.110
+        CachingConnectionFactory connectionFactory = new CachingConnectionFactory("192.168.6.110");
         connectionFactory.setUsername("pss");
         connectionFactory.setPassword("p$$");
         connectionFactory.setConnectionTimeout(3000);

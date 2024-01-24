@@ -29,4 +29,6 @@ public interface ConnectorsInfoCache {
     String getChargePointVendorError(int connectorId);
 
     boolean isCharging(int connectorId);
+
+    String getStatus(int connectorId);
 }

@@ -1,4 +1,4 @@
-package pss.mira.orp.JavaOCAOCPP.service.ocpp.handler;
+package pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.core;
 
 import eu.chargetime.ocpp.feature.profile.ClientCoreEventHandler;
 import eu.chargetime.ocpp.feature.profile.ClientCoreProfile;
@@ -30,7 +30,7 @@ import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.getResult;
 
 @Service
 @Slf4j
-public class HandlerImpl implements Handler {
+public class CoreHandlerImpl implements CoreHandler {
     private final ConnectorsInfoCache connectorsInfoCache;
     private final ChargeSessionMap chargeSessionMap;
     private final Sender sender;
@@ -43,7 +43,7 @@ public class HandlerImpl implements Handler {
     private ResetStatus resetStatus = null;
     private UnlockStatus unlockConnectorStatus = null;
 
-    public HandlerImpl(ConnectorsInfoCache connectorsInfoCache, ChargeSessionMap chargeSessionMap, Sender sender) {
+    public CoreHandlerImpl(ConnectorsInfoCache connectorsInfoCache, ChargeSessionMap chargeSessionMap, Sender sender) {
         this.connectorsInfoCache = connectorsInfoCache;
         this.chargeSessionMap = chargeSessionMap;
         this.sender = sender;
@@ -92,7 +92,7 @@ public class HandlerImpl implements Handler {
                         UUID.randomUUID().toString(),
                         Get.name(),
                         getDBTablesGetRequest(List.of(configuration.name())),
-                        getConfigurationForHandler.name()
+                        getConfigurationForCoreHandler.name()
                 );
                 while (true) {
                     if (configurationList == null) {
@@ -189,7 +189,7 @@ public class HandlerImpl implements Handler {
                         UUID.randomUUID().toString(),
                         Get.name(),
                         getDBTablesGetRequest(List.of(configuration.name())),
-                        getConfigurationForHandler.name()
+                        getConfigurationForCoreHandler.name()
                 );
                 while (true) {
                     if (configurationList == null) {
@@ -232,7 +232,7 @@ public class HandlerImpl implements Handler {
                         Map<String, Integer> map = new HashMap<>();
                         map.put("connectorId", request.getConnectorId());
                         sender.sendRequestToQueue(
-                                cp.name(),
+                                mainChargePointLogic.name(),
                                 UUID.randomUUID().toString(),
                                 RemoteStartTransaction.name(),
                                 map,
@@ -280,7 +280,7 @@ public class HandlerImpl implements Handler {
             ) {
                 log.info("Received from the central system: " + request.toString());
                 sender.sendRequestToQueue(
-                        cp.name(),
+                        mainChargePointLogic.name(),
                         UUID.randomUUID().toString(),
                         RemoteStopTransaction.name(),
                         request,
@@ -310,7 +310,7 @@ public class HandlerImpl implements Handler {
             public ResetConfirmation handleResetRequest(ResetRequest request) {
                 log.info("Received from the central system: " + request.toString());
                 sender.sendRequestToQueue(
-                        cp.name(),
+                        mainChargePointLogic.name(),
                         UUID.randomUUID().toString(),
                         Reset.name(),
                         request,
@@ -375,7 +375,7 @@ public class HandlerImpl implements Handler {
             public UnlockConnectorConfirmation handleUnlockConnectorRequest(UnlockConnectorRequest request) {
                 log.info("Received from the central system: " + request.toString());
                 sender.sendRequestToQueue(
-                        cp.name(),
+                        mainChargePointLogic.name(),
                         UUID.randomUUID().toString(),
                         UnlockConnector.name(),
                         request,
@@ -416,7 +416,7 @@ public class HandlerImpl implements Handler {
     }
 
     @Override
-    public void setConfigurationMap(List<Object> parsedMessage) {
+    public void setConfigurationList(List<Object> parsedMessage) {
         try {
             configurationList = getResult(parsedMessage);
         } catch (Exception ignored) {

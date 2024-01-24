@@ -15,7 +15,7 @@ import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.chargeSessionInfo.ChargeSessionInfo;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
-import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.Handler;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.core.CoreHandler;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.meterValues.MeterValues;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 
@@ -36,7 +36,7 @@ public class StartTransactionImpl implements StartTransaction {
     private final BootNotification bootNotification;
     private final ChargeSessionMap chargeSessionMap;
     private final ConnectorsInfoCache connectorsInfoCache;
-    private final Handler handler;
+    private final CoreHandler coreHandler;
     private final MeterValues meterValues;
     private final Sender sender;
 
@@ -44,14 +44,14 @@ public class StartTransactionImpl implements StartTransaction {
             BootNotification bootNotification,
             ChargeSessionMap chargeSessionMap,
             ConnectorsInfoCache connectorsInfoCache,
-            Handler handler,
+            CoreHandler coreHandler,
             MeterValues meterValues,
             Sender sender
     ) {
         this.bootNotification = bootNotification;
         this.chargeSessionMap = chargeSessionMap;
         this.connectorsInfoCache = connectorsInfoCache;
-        this.handler = handler;
+        this.coreHandler = coreHandler;
         this.meterValues = meterValues;
         this.sender = sender;
     }
@@ -68,7 +68,7 @@ public class StartTransactionImpl implements StartTransaction {
             int connectorId = Integer.parseInt(startTransactionMap.get("connectorId").toString());
             String idTag = startTransactionMap.get("idTag").toString();
 
-            ClientCoreProfile core = handler.getCore();
+            ClientCoreProfile core = coreHandler.getCore();
             JSONClient client = bootNotification.getClient();
             // Use the feature profile to help create event
             StartTransactionRequest request = core.createStartTransactionRequest(

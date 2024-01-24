@@ -14,7 +14,7 @@ import org.springframework.stereotype.Service;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
-import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.Handler;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.core.CoreHandler;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 
 import java.util.HashMap;
@@ -35,20 +35,20 @@ public class AuthorizeImpl implements Authorize {
     private final BootNotification bootNotification;
     private final ConnectorsInfoCache connectorsInfoCache;
     private final ChargeSessionMap chargeSessionMap;
-    private final Handler handler;
+    private final CoreHandler coreHandler;
     private final Sender sender;
 
     public AuthorizeImpl(
             BootNotification bootNotification,
             ConnectorsInfoCache connectorsInfoCache,
             ChargeSessionMap chargeSessionMap,
-            Handler handler,
+            CoreHandler coreHandler,
             Sender sender
     ) {
         this.bootNotification = bootNotification;
         this.connectorsInfoCache = connectorsInfoCache;
         this.chargeSessionMap = chargeSessionMap;
-        this.handler = handler;
+        this.coreHandler = coreHandler;
         this.sender = sender;
     }
 
@@ -73,7 +73,7 @@ public class AuthorizeImpl implements Authorize {
             } catch (NullPointerException ignored) {
 
             }
-            ClientCoreProfile core = handler.getCore();
+            ClientCoreProfile core = coreHandler.getCore();
             JSONClient client = bootNotification.getClient();
 
             if (client == null) {

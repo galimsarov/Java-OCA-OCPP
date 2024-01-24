@@ -9,7 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import pss.mira.orp.JavaOCAOCPP.models.requests.ocpp.StatusNotificationRequest;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
-import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.Handler;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.core.CoreHandler;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 
 import java.util.UUID;
@@ -21,18 +21,18 @@ import static pss.mira.orp.JavaOCAOCPP.models.enums.Queues.ocppCache;
 @Slf4j
 public class StatusNotificationImpl implements StatusNotification {
     private final BootNotification bootNotification;
-    private final Handler handler;
+    private final CoreHandler coreHandler;
     private final Sender sender;
 
-    public StatusNotificationImpl(BootNotification bootNotification, Handler handler, Sender sender) {
+    public StatusNotificationImpl(BootNotification bootNotification, CoreHandler coreHandler, Sender sender) {
         this.bootNotification = bootNotification;
-        this.handler = handler;
+        this.coreHandler = coreHandler;
         this.sender = sender;
     }
 
     @Override
     public void sendStatusNotification(StatusNotificationRequest statusNotificationRequest) {
-        ClientCoreProfile core = handler.getCore();
+        ClientCoreProfile core = coreHandler.getCore();
         JSONClient client = bootNotification.getClient();
         // Use the feature profile to help create event
         Request request = core.createStatusNotificationRequest(

@@ -20,14 +20,9 @@ public class BootNotificationRequest {
         for (Map<String, Object> map : result) {
             String key = map.get("key").toString();
             switch (key) {
-                case ("adresCS"):
-                    addressCP = map.get("value").toString();
-                    break;
-                case ("ChargePointID"):
-                    chargePointID = map.get("value").toString();
-                    break;
-                case ("ChargePointModel"):
-                    model = map.get("value").toString();
+                case "adresCS" -> addressCP = map.get("value").toString();
+                case "ChargePointID" -> chargePointID = map.get("value").toString();
+                case "ChargePointModel" -> model = map.get("value").toString();
             }
             if (addressCP != null && chargePointID != null && model != null) {
                 break;

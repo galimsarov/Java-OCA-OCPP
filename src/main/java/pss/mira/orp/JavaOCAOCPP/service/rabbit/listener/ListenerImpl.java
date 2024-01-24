@@ -12,7 +12,8 @@ import pss.mira.orp.JavaOCAOCPP.service.cache.request.RequestCache;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.authorize.Authorize;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.dataTransfer.DataTransfer;
-import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.Handler;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.core.CoreHandler;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.reservation.ReservationHandler;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.meterValues.MeterValues;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.startTransaction.StartTransaction;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.statusNotification.StatusNotification;
@@ -32,9 +33,10 @@ public class ListenerImpl implements Listener {
     private final ChargeSessionMap chargeSessionMap;
     private final ConnectorsInfoCache connectorsInfoCache;
     private final DataTransfer dataTransfer;
-    private final Handler handler;
+    private final CoreHandler coreHandler;
     private final MeterValues meterValues;
     private final RequestCache requestCache;
+    private final ReservationHandler reservationHandler;
     private final StartTransaction startTransaction;
     private final StatusNotification statusNotification;
     private final StopTransaction stopTransaction;
@@ -46,9 +48,10 @@ public class ListenerImpl implements Listener {
             ChargeSessionMap chargeSessionMap,
             ConnectorsInfoCache connectorsInfoCache,
             DataTransfer dataTransfer,
-            Handler handler,
+            CoreHandler coreHandler,
             MeterValues meterValues,
             RequestCache requestCache,
+            ReservationHandler reservationHandler,
             StartTransaction startTransaction,
             StatusNotification statusNotification,
             StopTransaction stopTransaction
@@ -58,9 +61,10 @@ public class ListenerImpl implements Listener {
         this.chargeSessionMap = chargeSessionMap;
         this.connectorsInfoCache = connectorsInfoCache;
         this.dataTransfer = dataTransfer;
-        this.handler = handler;
+        this.coreHandler = coreHandler;
         this.meterValues = meterValues;
         this.requestCache = requestCache;
+        this.reservationHandler = reservationHandler;
         this.startTransaction = startTransaction;
         this.statusNotification = statusNotification;
         this.stopTransaction = stopTransaction;
@@ -80,66 +84,40 @@ public class ListenerImpl implements Listener {
                     if (cashedRequest != null) {
                         // запрос в кэше найден
                         switch (cashedRequest.get(4).toString()) {
-                            case ("auth_list"):
-                                authorize.setAuthMap(parsedMessage);
-                                break;
-                            case ("Authorize"):
-                                handler.setAuthorizeConfirmation(parsedMessage);
-                                break;
-                            case ("config_zs"):
-                                sendBootNotification(parsedMessage);
-                                break;
-                            case ("getConfigurationForHandler"):
-                                handler.setConfigurationMap(parsedMessage);
-                                break;
-                            case ("getConfigurationForMeterValues"):
-                                meterValues.setConfigurationMap(parsedMessage);
-                                break;
-                            case ("changeConfiguration"):
-                                handler.setChangeConfigurationStatus(parsedMessage);
-                                break;
-                            case ("ChangeAvailability"):
-                                // здесь была отправка Status Notification, но она обрабатывается отдельно в очереди
-                                // connectorsInfo
-                                handler.setAvailabilityStatus(parsedMessage);
-                                break;
-                            case ("RemoteStartTransaction"):
-                                handler.setRemoteStartStopStatus(parsedMessage, "start");
-                                break;
-                            case ("RemoteStopTransaction"):
-                                handler.setRemoteStartStopStatus(parsedMessage, "stop");
-                                break;
-                            case ("GetConnectorsInfo"):
+                            // core
+                            case "auth_list" -> authorize.setAuthMap(parsedMessage);
+                            case "Authorize" -> coreHandler.setAuthorizeConfirmation(parsedMessage);
+                            case "config_zs" -> sendBootNotification(parsedMessage);
+                            case "getConfigurationForCoreHandler" -> coreHandler.setConfigurationList(parsedMessage);
+                            case "getConfigurationForMeterValues" -> meterValues.setConfigurationMap(parsedMessage);
+                            case "changeConfiguration" -> coreHandler.setChangeConfigurationStatus(parsedMessage);
+                            case "ChangeAvailability" -> coreHandler.setAvailabilityStatus(parsedMessage);
+                            case "RemoteStartTransaction" ->
+                                    coreHandler.setRemoteStartStopStatus(parsedMessage, "start");
+                            case "RemoteStopTransaction" -> coreHandler.setRemoteStartStopStatus(parsedMessage, "stop");
+                            case "GetConnectorsInfo" -> {
                                 List<StatusNotificationRequest> possibleRequests =
                                         connectorsInfoCache.createCache(parsedMessage);
                                 for (StatusNotificationRequest request : possibleRequests) {
                                     statusNotification.sendStatusNotification(request);
                                 }
-                                break;
-                            case ("Reset"):
-                                handler.setResetStatus(parsedMessage);
-                                break;
-                            case ("UnlockConnector"):
-                                handler.setUnlockConnectorStatus(parsedMessage);
-                                break;
+                            }
+                            case "Reset" -> coreHandler.setResetStatus(parsedMessage);
+                            case "UnlockConnector" -> coreHandler.setUnlockConnectorStatus(parsedMessage);
+                            // reservation
+                            case "getConfigurationForReservationHandler" ->
+                                    reservationHandler.setConfigurationList(parsedMessage);
+                            case "reservation" -> reservationHandler.setReservationStatus(parsedMessage);
                         }
                         requestCache.removeFromCache(uuid);
                     }
                 } else {
                     // запросы
                     switch (parsedMessage.get(2).toString()) {
-                        case ("Authorize"):
-                            authorize.sendAuthorize(parsedMessage);
-                            break;
-                        case ("DataTransfer"):
-                            dataTransfer.sendDataTransfer(parsedMessage);
-                            break;
-                        case ("StartTransaction"):
-                            startTransaction.sendStartTransaction(parsedMessage);
-                            break;
-                        case ("LocalStop"):
-                            stopTransaction.sendLocalStop(parsedMessage);
-                            break;
+                        case "Authorize" -> authorize.sendAuthorize(parsedMessage);
+                        case "DataTransfer" -> dataTransfer.sendDataTransfer(parsedMessage);
+                        case "StartTransaction" -> startTransaction.sendStartTransaction(parsedMessage);
+                        case "LocalStop" -> stopTransaction.sendLocalStop(parsedMessage);
                     }
                 }
             } else {
@@ -159,7 +137,7 @@ public class ListenerImpl implements Listener {
     @Override
     // prod, test -> connectorsInfoOcpp
     // dev -> myQueue1
-    @RabbitListener(queues = "myQueue1")
+    @RabbitListener(queues = "connectorsInfoOcpp")
     public void processConnectorsInfo(String message) {
         log.info("Received from connectorsInfoOcpp queue: " + message);
         try {
