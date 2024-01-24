@@ -8,6 +8,7 @@ public enum Actions {
     RemoteStartTransaction,
     RemoteStopTransaction,
     Reset,
+    UnlockConnector,
     // ocpp, то есть, сам себе
     Authorize,
     SaveToCache,

@@ -18,4 +18,6 @@ public interface Handler {
     void setRemoteStartStopStatus(List<Object> parsedMessage, String type);
 
     void setResetStatus(List<Object> parsedMessage);
+
+    void setUnlockConnectorStatus(List<Object> parsedMessage);
 }

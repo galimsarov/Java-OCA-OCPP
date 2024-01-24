@@ -119,6 +119,9 @@ public class ListenerImpl implements Listener {
                             case ("Reset"):
                                 handler.setResetStatus(parsedMessage);
                                 break;
+                            case ("UnlockConnector"):
+                                handler.setUnlockConnectorStatus(parsedMessage);
+                                break;
                         }
                         requestCache.removeFromCache(uuid);
                     }
@@ -154,11 +157,11 @@ public class ListenerImpl implements Listener {
     }
 
     @Override
-    // prod, test -> connectorsInfo
+    // prod, test -> connectorsInfoOcpp
     // dev -> myQueue1
     @RabbitListener(queues = "myQueue1")
     public void processConnectorsInfo(String message) {
-        log.info("Received from connectorsInfo queue: " + message);
+        log.info("Received from connectorsInfoOcpp queue: " + message);
         try {
             List<Map<String, Object>> parsedMessage = objectMapper.readValue(message, List.class);
             List<StatusNotificationRequest> possibleRequests = connectorsInfoCache.addToCache(parsedMessage);

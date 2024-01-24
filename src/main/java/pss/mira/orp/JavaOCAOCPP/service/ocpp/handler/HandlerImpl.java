@@ -41,6 +41,7 @@ public class HandlerImpl implements Handler {
     private RemoteStartStopStatus remoteStartStatus = null;
     private RemoteStartStopStatus remoteStopStatus = null;
     private ResetStatus resetStatus = null;
+    private UnlockStatus unlockConnectorStatus = null;
 
     public HandlerImpl(ConnectorsInfoCache connectorsInfoCache, ChargeSessionMap chargeSessionMap, Sender sender) {
         this.connectorsInfoCache = connectorsInfoCache;
@@ -320,7 +321,7 @@ public class HandlerImpl implements Handler {
                         try {
                             Thread.sleep(1000);
                         } catch (InterruptedException e) {
-                            log.error("Аn error while waiting for remote start transaction response");
+                            log.error("Аn error while waiting for reset response");
                         }
                     } else {
                         break;
@@ -372,11 +373,29 @@ public class HandlerImpl implements Handler {
 
             @Override
             public UnlockConnectorConfirmation handleUnlockConnectorRequest(UnlockConnectorRequest request) {
-
-                log.info(request.toString());
-                // ... handle event
-
-                return null; // returning null means unsupported feature
+                log.info("Received from the central system: " + request.toString());
+                sender.sendRequestToQueue(
+                        cp.name(),
+                        UUID.randomUUID().toString(),
+                        UnlockConnector.name(),
+                        request,
+                        UnlockConnector.name()
+                );
+                while (true) {
+                    if (unlockConnectorStatus == null) {
+                        try {
+                            Thread.sleep(1000);
+                        } catch (InterruptedException e) {
+                            log.error("Аn error while waiting for remote start transaction response");
+                        }
+                    } else {
+                        break;
+                    }
+                }
+                UnlockConnectorConfirmation result = new UnlockConnectorConfirmation(unlockConnectorStatus);
+                unlockConnectorStatus = null;
+                log.info("Sent to central system: " + result);
+                return result;
             }
         });
     }
@@ -475,5 +494,17 @@ public class HandlerImpl implements Handler {
         } else {
             resetStatus = ResetStatus.Rejected;
         }
+    }
+
+    @Override
+    public void setUnlockConnectorStatus(List<Object> parsedMessage) {
+        Map<String, String> unlockConnectorStatusMap = (Map<String, String>) parsedMessage.get(2);
+        for (UnlockStatus status : UnlockStatus.values()) {
+            if (unlockConnectorStatusMap.get("status").equals(status.name())) {
+                unlockConnectorStatus = status;
+                return;
+            }
+        }
+        unlockConnectorStatus = UnlockStatus.NotSupported;
     }
 }
