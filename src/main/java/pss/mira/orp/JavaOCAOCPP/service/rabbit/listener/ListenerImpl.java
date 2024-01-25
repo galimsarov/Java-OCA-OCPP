@@ -108,6 +108,7 @@ public class ListenerImpl implements Listener {
                             case "getConfigurationForReservationHandler" ->
                                     reservationHandler.setConfigurationList(parsedMessage);
                             case "ReserveNow" -> reservationHandler.setReservationResult(parsedMessage);
+                            case "CancelReservation" -> reservationHandler.setCancelReservationStatus(parsedMessage);
                         }
                         requestCache.removeFromCache(uuid);
                     }
@@ -137,7 +138,7 @@ public class ListenerImpl implements Listener {
     @Override
     // prod, test -> connectorsInfoOcpp
     // dev -> myQueue1
-    @RabbitListener(queues = "myQueue1")
+    @RabbitListener(queues = "connectorsInfoOcpp")
     public void processConnectorsInfo(String message) {
         log.info("Received from connectorsInfoOcpp queue: " + message);
         try {

@@ -5,7 +5,7 @@ public enum Queues {
     connectorsInfo,
     // prod, test -> mainChargePointLogic
     // dev -> cp
-    cp,
+    mainChargePointLogic,
     ModBus,
     ocpp,
     ocppCache

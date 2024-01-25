@@ -196,4 +196,14 @@ public class ReservationHandlerImpl implements ReservationHandler {
         Map<String, String> map = (Map<String, String>) parsedMessage.get(2);
         reservationResult = map.get("result");
     }
+
+    @Override
+    public void setCancelReservationStatus(List<Object> parsedMessage) {
+        Map<String, String> map = (Map<String, String>) parsedMessage.get(2);
+        if (map.get("status").equals("Accepted")) {
+            cancelReservationStatus = CancelReservationStatus.Accepted;
+        } else {
+            cancelReservationStatus = CancelReservationStatus.Rejected;
+        }
+    }
 }

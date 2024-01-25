@@ -10,4 +10,6 @@ public interface ReservationHandler {
     void setConfigurationList(List<Object> parsedMessage);
 
     void setReservationResult(List<Object> parsedMessage);
+
+    void setCancelReservationStatus(List<Object> parsedMessage);
 }
