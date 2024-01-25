@@ -12,6 +12,7 @@ import java.util.UUID;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.Get;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.GetConnectorsInfo;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.config_zs;
+import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.reservation;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Queues.ModBus;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Queues.bd;
 import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.getDBTablesGetRequest;
@@ -42,7 +43,20 @@ public class OcppLoader implements CommandLineRunner {
                 config_zs.name()
         );
 
-        Runnable dbResponseTask = () -> {
+        Thread connectorsInfoThread = getConnectorsInfoThread();
+        connectorsInfoThread.start();
+
+        sender.sendRequestToQueue(
+                bd.name(),
+                UUID.randomUUID().toString(),
+                Get.name(),
+                getDBTablesGetRequest(List.of(reservation.name())),
+                reservation.name()
+        );
+    }
+
+    private Thread getConnectorsInfoThread() {
+        Runnable connectorsInfoTask = () -> {
             while (true) {
                 if (bootNotification.getClient() == null) {
                     try {
@@ -62,8 +76,7 @@ public class OcppLoader implements CommandLineRunner {
                     GetConnectorsInfo.name()
             );
         };
-        Thread dbResponseThread = new Thread(dbResponseTask);
-        dbResponseThread.start();
+        return new Thread(connectorsInfoTask);
     }
 
     private Thread getHeartbeatRabbitThread() {

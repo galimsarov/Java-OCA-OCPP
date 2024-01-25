@@ -159,7 +159,7 @@ public class ReservationHandlerImpl implements ReservationHandler {
                         Delete.name(),
                         new DBTablesDeleteRequest(
                                 reservation.name(),
-                                "reservation_id:",
+                                "reservation_id",
                                 request.getReservationId().toString()),
                         CancelReservation.name()
                 );

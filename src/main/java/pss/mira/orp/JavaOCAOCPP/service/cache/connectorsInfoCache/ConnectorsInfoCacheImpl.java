@@ -5,6 +5,7 @@ import eu.chargetime.ocpp.model.core.ChargePointStatus;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import pss.mira.orp.JavaOCAOCPP.models.requests.ocpp.StatusNotificationRequest;
+import pss.mira.orp.JavaOCAOCPP.service.cache.reservation.ReservationCache;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -17,6 +18,11 @@ import static pss.mira.orp.JavaOCAOCPP.models.enums.ConnectorStatus.Charging;
 @Slf4j
 public class ConnectorsInfoCacheImpl implements ConnectorsInfoCache {
     private final Map<Integer, Map<String, Object>> connectorsMap = new HashMap<>();
+    private final ReservationCache reservationCache;
+
+    public ConnectorsInfoCacheImpl(ReservationCache reservationCache) {
+        this.reservationCache = reservationCache;
+    }
 
     /**
      * ["ModBus","92c0ac6b-38cc-4612-b985-8a00154f1129",{"connectors":[{"id":1,"slaveId":1,"status":"Available","error":"NoError","chargePointVendorError":"NoErrorVendor","errorCode":0,"unavailableTime":0,"lastChargePointVendorError":"NoErrorVendor","timer":0,"startTimer":0,"timeoutButtonStartStop":0,"excessEnergy":0,"connected":false,"ev_requested_voltage":0.0,"ev_requested_current":16.0,"ev_requested_power":0,"lastTime":"Jan 25, 2024, 7:11:28 AM","lastConnectorStatus":"Available","startFlag":false,"limitCalc":0.0,"voltageFromPhases":220.0,"lastAmperage":0.0,"lastPower":0.0,"maxDynamicPower":0.0,"maxDynamicAmperage":0.0,"CounterDynamic":0,"rfidStartLocal":false,"rfidStart":false,"buttonStart":false,"connectorInsertedTime":0,"flagConnectorInsertedTimeSend":false,"startStopButtonPressed":false,"remoteStart":false,"startFromButton":false,"sentPreparing":false,"errorMiraMeter":false,"reserved":false,"spamCount":0,"spamBlock":false,"timeLastStatusSending":"Jan 25, 2024, 7:11:28 AM","fullStationExternConsumedEnergy":0.0,"statusPrecharge":"NONE","emergencyButtonPressed":false,"openDoor":false,"mode3StopButtonPressed":false,"connectedToEV":false,"consumedEnergy":0,"percent":0,"power":0.0,"currentAmperage":16.0,"currentVoltage":0,"remainingTime":0,"type":"Mode3_type2","minAmperage":0.0,"maxAmperage":0.0,"minPower":0.0,"maxPower":0.0,"minVoltage":0,"maxVoltage":0,"statusPWM":"WAITING","wellPWM":53,"maxSessionAmperage":0.0,"maxSessionPower":0.0,"temperaturePwM":-50,"fullStationConsumedEnergy":0,"CCSControllerVersion":0,"mapModulInfo":{},"stationInfo":[],"mapTemperatureCmInfo":{},"CCSControllerConfig":0,"CCSMatchingDeviceVersion":0}]}]
@@ -24,16 +30,27 @@ public class ConnectorsInfoCacheImpl implements ConnectorsInfoCache {
      */
     @Override
     public List<StatusNotificationRequest> addToCache(List<Map<String, Object>> connectorsInfo) {
+        while (true) {
+            if (reservationCache.filled()) {
+                break;
+            } else {
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    log.error("An error occurred while creating reservation cache");
+                }
+            }
+        }
         List<StatusNotificationRequest> result = new ArrayList<>();
         if (!connectorsMap.isEmpty()) {
             for (Map<String, Object> map : connectorsInfo) {
                 int id = Integer.parseInt(map.get("id").toString());
                 String newError = map.get("error").toString();
-                String newStatus = map.get("status").toString();
+                String newStatus = fixStatus(map.get("status").toString(), id);
 
                 Map<String, Object> mapFromCache = connectorsMap.get(id);
                 String oldError = mapFromCache.get("error").toString();
-                String oldStatus = mapFromCache.get("status").toString();
+                String oldStatus = fixStatus(mapFromCache.get("status").toString(), id);
 
                 if (!newError.equals(oldError) || !newStatus.equals(oldStatus)) {
                     addToResult(newError, newStatus, result, id);
@@ -44,7 +61,7 @@ public class ConnectorsInfoCacheImpl implements ConnectorsInfoCache {
             for (Map<String, Object> map : connectorsInfo) {
                 int id = Integer.parseInt(map.get("id").toString());
                 String newError = map.get("error").toString();
-                String newStatus = map.get("status").toString();
+                String newStatus = fixStatus(map.get("status").toString(), id);
                 addToResult(newError, newStatus, result, id);
             }
         }
@@ -53,6 +70,19 @@ public class ConnectorsInfoCacheImpl implements ConnectorsInfoCache {
             connectorsMap.put(connectorId, map);
         }
         return result;
+    }
+
+    private String fixStatus(String status, int connectorId) {
+        boolean reserved = reservationCache.reserved(connectorId);
+        if (reserved) {
+            if (status.equals("Unavailable") || status.equals("Faulted")) {
+                return status;
+            } else {
+                return "Reserved";
+            }
+        } else {
+            return status;
+        }
     }
 
     @Override

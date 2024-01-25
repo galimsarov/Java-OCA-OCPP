@@ -9,6 +9,7 @@ import pss.mira.orp.JavaOCAOCPP.models.requests.ocpp.StatusNotificationRequest;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
 import pss.mira.orp.JavaOCAOCPP.service.cache.request.RequestCache;
+import pss.mira.orp.JavaOCAOCPP.service.cache.reservation.ReservationCache;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.authorize.Authorize;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.dataTransfer.DataTransfer;
@@ -36,6 +37,7 @@ public class ListenerImpl implements Listener {
     private final CoreHandler coreHandler;
     private final MeterValues meterValues;
     private final RequestCache requestCache;
+    private final ReservationCache reservationCache;
     private final ReservationHandler reservationHandler;
     private final StartTransaction startTransaction;
     private final StatusNotification statusNotification;
@@ -50,6 +52,7 @@ public class ListenerImpl implements Listener {
             DataTransfer dataTransfer,
             CoreHandler coreHandler,
             MeterValues meterValues,
+            ReservationCache reservationCache,
             RequestCache requestCache,
             ReservationHandler reservationHandler,
             StartTransaction startTransaction,
@@ -63,6 +66,7 @@ public class ListenerImpl implements Listener {
         this.dataTransfer = dataTransfer;
         this.coreHandler = coreHandler;
         this.meterValues = meterValues;
+        this.reservationCache = reservationCache;
         this.requestCache = requestCache;
         this.reservationHandler = reservationHandler;
         this.startTransaction = startTransaction;
@@ -102,6 +106,7 @@ public class ListenerImpl implements Listener {
                             case "RemoteStartTransaction" ->
                                     coreHandler.setRemoteStartStopStatus(parsedMessage, "start");
                             case "RemoteStopTransaction" -> coreHandler.setRemoteStartStopStatus(parsedMessage, "stop");
+                            case "reservation" -> reservationCache.addToCache(parsedMessage);
                             case "Reset" -> coreHandler.setResetStatus(parsedMessage);
                             case "UnlockConnector" -> coreHandler.setUnlockConnectorStatus(parsedMessage);
                             // reservation
@@ -138,7 +143,7 @@ public class ListenerImpl implements Listener {
     @Override
     // prod, test -> connectorsInfoOcpp
     // dev -> myQueue1
-    @RabbitListener(queues = "connectorsInfoOcpp")
+    @RabbitListener(queues = "myQueue1")
     public void processConnectorsInfo(String message) {
         log.info("Received from connectorsInfoOcpp queue: " + message);
         try {
