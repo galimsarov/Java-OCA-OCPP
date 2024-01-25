@@ -2,13 +2,11 @@ package pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.reservation;
 
 import eu.chargetime.ocpp.feature.profile.ClientReservationEventHandler;
 import eu.chargetime.ocpp.feature.profile.ClientReservationProfile;
-import eu.chargetime.ocpp.model.reservation.CancelReservationConfirmation;
-import eu.chargetime.ocpp.model.reservation.CancelReservationRequest;
-import eu.chargetime.ocpp.model.reservation.ReserveNowConfirmation;
-import eu.chargetime.ocpp.model.reservation.ReserveNowRequest;
+import eu.chargetime.ocpp.model.reservation.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import pss.mira.orp.JavaOCAOCPP.models.requests.rabbit.DBTablesChangeRequest;
+import pss.mira.orp.JavaOCAOCPP.models.requests.rabbit.DBTablesDeleteRequest;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 
@@ -17,8 +15,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import static eu.chargetime.ocpp.model.reservation.ReservationStatus.*;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.Change;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.Get;
+import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.*;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.*;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Queues.bd;
 import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.*;
@@ -29,7 +26,8 @@ public class ReservationHandlerImpl implements ReservationHandler {
     private final ConnectorsInfoCache connectorsInfoCache;
     private final Sender sender;
     private List<Map<String, Object>> configurationList = null;
-    private String reservationStatus = null;
+    private String reservationResult = null;
+    private CancelReservationStatus cancelReservationStatus = null;
 
     public ReservationHandlerImpl(ConnectorsInfoCache connectorsInfoCache, Sender sender) {
         this.connectorsInfoCache = connectorsInfoCache;
@@ -77,11 +75,11 @@ public class ReservationHandlerImpl implements ReservationHandler {
                                             reservation.name(),
                                             "reservation_id:" + request.getReservationId(),
                                             getReservationValues(request)),
-                                    reservation.name()
+                                    ReserveNow.name()
                             );
                         }
                         while (true) {
-                            if (reservationStatus == null) {
+                            if (reservationResult == null) {
                                 try {
                                     Thread.sleep(1000);
                                 } catch (InterruptedException e) {
@@ -91,12 +89,12 @@ public class ReservationHandlerImpl implements ReservationHandler {
                                 break;
                             }
                         }
-                        if (reservationStatus.equals("Accepted")) {
+                        if (reservationResult.equals("Accepted")) {
                             result.setStatus(Accepted);
                         } else {
                             result.setStatus(Rejected);
                         }
-                        reservationStatus = null;
+                        reservationResult = null;
                     }
                 }
                 configurationList = null;
@@ -154,7 +152,32 @@ public class ReservationHandlerImpl implements ReservationHandler {
 
             @Override
             public CancelReservationConfirmation handleCancelReservationRequest(CancelReservationRequest request) {
-                return null;
+                log.info("Received from the central system: " + request.toString());
+                sender.sendRequestToQueue(
+                        bd.name(),
+                        UUID.randomUUID().toString(),
+                        Delete.name(),
+                        new DBTablesDeleteRequest(
+                                reservation.name(),
+                                "reservation_id:",
+                                request.getReservationId().toString()),
+                        CancelReservation.name()
+                );
+                while (true) {
+                    if (cancelReservationStatus == null) {
+                        try {
+                            Thread.sleep(1000);
+                        } catch (InterruptedException e) {
+                            log.error("An error while waiting the reservation status");
+                        }
+                    } else {
+                        break;
+                    }
+                }
+                CancelReservationConfirmation result = new CancelReservationConfirmation(cancelReservationStatus);
+                log.info("Send to the central system: " + result);
+                cancelReservationStatus = null;
+                return result;
             }
         });
     }
@@ -169,8 +192,8 @@ public class ReservationHandlerImpl implements ReservationHandler {
     }
 
     @Override
-    public void setReservationStatus(List<Object> parsedMessage) {
+    public void setReservationResult(List<Object> parsedMessage) {
         Map<String, String> map = (Map<String, String>) parsedMessage.get(2);
-        reservationStatus = map.get("result");
+        reservationResult = map.get("result");
     }
 }

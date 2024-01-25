@@ -87,14 +87,11 @@ public class ListenerImpl implements Listener {
                             // core
                             case "auth_list" -> authorize.setAuthMap(parsedMessage);
                             case "Authorize" -> coreHandler.setAuthorizeConfirmation(parsedMessage);
+                            case "changeConfiguration" -> coreHandler.setChangeConfigurationStatus(parsedMessage);
+                            case "ChangeAvailability" -> coreHandler.setAvailabilityStatus(parsedMessage);
                             case "config_zs" -> sendBootNotification(parsedMessage);
                             case "getConfigurationForCoreHandler" -> coreHandler.setConfigurationList(parsedMessage);
                             case "getConfigurationForMeterValues" -> meterValues.setConfigurationMap(parsedMessage);
-                            case "changeConfiguration" -> coreHandler.setChangeConfigurationStatus(parsedMessage);
-                            case "ChangeAvailability" -> coreHandler.setAvailabilityStatus(parsedMessage);
-                            case "RemoteStartTransaction" ->
-                                    coreHandler.setRemoteStartStopStatus(parsedMessage, "start");
-                            case "RemoteStopTransaction" -> coreHandler.setRemoteStartStopStatus(parsedMessage, "stop");
                             case "GetConnectorsInfo" -> {
                                 List<StatusNotificationRequest> possibleRequests =
                                         connectorsInfoCache.createCache(parsedMessage);
@@ -102,12 +99,15 @@ public class ListenerImpl implements Listener {
                                     statusNotification.sendStatusNotification(request);
                                 }
                             }
+                            case "RemoteStartTransaction" ->
+                                    coreHandler.setRemoteStartStopStatus(parsedMessage, "start");
+                            case "RemoteStopTransaction" -> coreHandler.setRemoteStartStopStatus(parsedMessage, "stop");
                             case "Reset" -> coreHandler.setResetStatus(parsedMessage);
                             case "UnlockConnector" -> coreHandler.setUnlockConnectorStatus(parsedMessage);
                             // reservation
                             case "getConfigurationForReservationHandler" ->
                                     reservationHandler.setConfigurationList(parsedMessage);
-                            case "reservation" -> reservationHandler.setReservationStatus(parsedMessage);
+                            case "ReserveNow" -> reservationHandler.setReservationResult(parsedMessage);
                         }
                         requestCache.removeFromCache(uuid);
                     }
@@ -116,8 +116,8 @@ public class ListenerImpl implements Listener {
                     switch (parsedMessage.get(2).toString()) {
                         case "Authorize" -> authorize.sendAuthorize(parsedMessage);
                         case "DataTransfer" -> dataTransfer.sendDataTransfer(parsedMessage);
-                        case "StartTransaction" -> startTransaction.sendStartTransaction(parsedMessage);
                         case "LocalStop" -> stopTransaction.sendLocalStop(parsedMessage);
+                        case "StartTransaction" -> startTransaction.sendStartTransaction(parsedMessage);
                     }
                 }
             } else {
@@ -137,7 +137,7 @@ public class ListenerImpl implements Listener {
     @Override
     // prod, test -> connectorsInfoOcpp
     // dev -> myQueue1
-    @RabbitListener(queues = "connectorsInfoOcpp")
+    @RabbitListener(queues = "myQueue1")
     public void processConnectorsInfo(String message) {
         log.info("Received from connectorsInfoOcpp queue: " + message);
         try {

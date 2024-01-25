@@ -232,7 +232,7 @@ public class CoreHandlerImpl implements CoreHandler {
                         Map<String, Integer> map = new HashMap<>();
                         map.put("connectorId", request.getConnectorId());
                         sender.sendRequestToQueue(
-                                mainChargePointLogic.name(),
+                                cp.name(),
                                 UUID.randomUUID().toString(),
                                 RemoteStartTransaction.name(),
                                 map,
@@ -280,7 +280,7 @@ public class CoreHandlerImpl implements CoreHandler {
             ) {
                 log.info("Received from the central system: " + request.toString());
                 sender.sendRequestToQueue(
-                        mainChargePointLogic.name(),
+                        cp.name(),
                         UUID.randomUUID().toString(),
                         RemoteStopTransaction.name(),
                         request,
@@ -310,7 +310,7 @@ public class CoreHandlerImpl implements CoreHandler {
             public ResetConfirmation handleResetRequest(ResetRequest request) {
                 log.info("Received from the central system: " + request.toString());
                 sender.sendRequestToQueue(
-                        mainChargePointLogic.name(),
+                        cp.name(),
                         UUID.randomUUID().toString(),
                         Reset.name(),
                         request,
@@ -375,7 +375,7 @@ public class CoreHandlerImpl implements CoreHandler {
             public UnlockConnectorConfirmation handleUnlockConnectorRequest(UnlockConnectorRequest request) {
                 log.info("Received from the central system: " + request.toString());
                 sender.sendRequestToQueue(
-                        mainChargePointLogic.name(),
+                        cp.name(),
                         UUID.randomUUID().toString(),
                         UnlockConnector.name(),
                         request,

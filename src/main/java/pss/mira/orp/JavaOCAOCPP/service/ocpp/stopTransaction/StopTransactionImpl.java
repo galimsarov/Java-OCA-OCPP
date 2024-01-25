@@ -56,7 +56,7 @@ public class StopTransactionImpl implements StopTransaction {
     }
 
     /**
-     * ["myQueue1","71f599b2-b3f0-4680-b447-ae6d6dc0cc0c","StopTransaction",{"transactionId":2682}]
+     * ["cp","5e6b7e60-e5fc-411c-9d4f-26b520587973","LocalStop",{"connectorId":1,"reason":"local"}]
      */
     @Override
     public void sendLocalStop(List<Object> parsedMessage) {
@@ -94,6 +94,7 @@ public class StopTransactionImpl implements StopTransaction {
                 } else {
                     // Client returns a promise which will be filled once it receives a confirmation.
                     try {
+                        log.info("Sent to central system: " + request);
                         client.send(request).whenComplete((confirmation, ex) -> {
                             log.info("Received from the central system: " + confirmation);
                             handleResponse(consumer, requestUuid, confirmation, connectorId, reason);
@@ -183,7 +184,6 @@ public class StopTransactionImpl implements StopTransaction {
                         )),
                 transaction1.name()
         );
-        chargeSessionMap.removeFromChargeSessionMap(connectorId);
         if (!consumer.isBlank()) {
             sender.sendRequestToQueue(consumer, requestUuid, "", confirmation, "");
         }

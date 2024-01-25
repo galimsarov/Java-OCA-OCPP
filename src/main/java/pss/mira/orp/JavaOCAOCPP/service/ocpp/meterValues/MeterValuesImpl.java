@@ -250,6 +250,7 @@ public class MeterValuesImpl implements MeterValues {
             }
         }
         int transactionId = chargeSessionMap.getChargeSessionInfo(connectorId).getTransactionId();
+        chargeSessionMap.removeFromChargeSessionMap(connectorId);
         chargingConnectors.remove(connectorId);
         sendMeterValues(connectorId, meterValuesSampledData, "Transaction.End", transactionId);
     }

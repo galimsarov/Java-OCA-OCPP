@@ -55,7 +55,7 @@ public class AuthorizeImpl implements Authorize {
     /**
      * Отправляет запрос на авторизацию в ЦС
      * @param parsedMessage запрос от сервиса в формате:
-     * ["mainChargePointLogic","71f599b2-b3f0-4680-b447-ae6d6dc0cc0c","Authorize",{"idTag":"hhhh","connectorId":1}]
+     * ["cp","71f599b2-b3f0-4680-b447-ae6d6dc0cc0c","Authorize",{"idTag":"hhhh","connectorId":1}]
      * Формат ответа от steve:
      * AuthorizeConfirmation{idTagInfo=IdTagInfo{expiryDate="2024-01-10T11:12:02.925Z", parentIdTag=null, status=Accepted}, isValid=true}
      */

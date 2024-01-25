@@ -2,8 +2,11 @@ package pss.mira.orp.JavaOCAOCPP.models.enums;
 
 public enum Actions {
     // bd
+    CancelReservation,
     Change,
+    Delete,
     Get,
+    ReserveNow,
     // mainChargePointLogic
     RemoteStartTransaction,
     RemoteStopTransaction,
