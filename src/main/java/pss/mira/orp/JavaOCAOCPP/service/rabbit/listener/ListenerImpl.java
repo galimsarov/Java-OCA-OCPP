@@ -151,29 +151,53 @@ public class ListenerImpl implements Listener {
             List<StatusNotificationRequest> possibleRequests = connectorsInfoCache.addToCache(parsedMessage);
             for (StatusNotificationRequest request : possibleRequests) {
                 statusNotification.sendStatusNotification(request);
-                if (request.getStatus().equals(Preparing) && chargeSessionMap.isRemoteStart(request.getId())) {
-                    chargeSessionMap.stopPreparingTimer(request.getId());
-                    if (chargeSessionMap.canSendStartTransaction(request.getId())) {
-                        startTransaction.sendStartTransaction(chargeSessionMap.getChargeSessionInfo(request.getId()));
-                    }
-                }
-                if (request.getStatus().equals(Charging) && chargeSessionMap.isRemoteStart(request.getId()) &&
-                        (chargeSessionMap.getChargeSessionInfo(request.getId()).getPreparingTimer() == null)) {
-                    startTransaction.sendStartTransaction(chargeSessionMap.getChargeSessionInfo(request.getId()));
-                }
-                if (request.getStatus().equals(Charging) && !chargeSessionMap.isRemoteStart(request.getId())) {
-                    startTransaction.sendStartTransaction(chargeSessionMap.getChargeSessionInfo(request.getId()));
-                }
-                if (request.getStatus().equals(Finishing)) {
-                    meterValues.removeFromChargingConnectors(request.getId());
-                    if (chargeSessionMap.isRemoteStop(request.getId())) {
-                        stopTransaction.sendRemoteStop(request.getId());
-                    }
-                }
+                tryRemoteStartAndStopPreparingTimer(request);
+                remoteStartForCharging(request);
+                localStartForCharging(request);
+                removeFromChargingAndStopRemote(request);
             }
         } catch (Exception e) {
             log.error("Error when parsing a message from the broker");
         }
         chargeSessionMap.deleteNotStartedRemoteTransactions();
+    }
+
+    private void removeFromChargingAndStopRemote(StatusNotificationRequest request) {
+        if (request.getStatus().equals(Finishing) && !reservationCache.reserved(request.getId())) {
+            meterValues.removeFromChargingConnectors(request.getId());
+            if (chargeSessionMap.isRemoteStop(request.getId())) {
+                stopTransaction.sendRemoteStop(request.getId());
+            }
+        }
+    }
+
+    private void localStartForCharging(StatusNotificationRequest request) {
+        if (request.getStatus().equals(Charging) && !chargeSessionMap.isRemoteStart(request.getId()) &&
+                !reservationCache.reserved(request.getId())
+        ) {
+            startTransaction.sendStartTransaction(chargeSessionMap.getChargeSessionInfo(request.getId()));
+        }
+    }
+
+    private void remoteStartForCharging(StatusNotificationRequest request) {
+        if (
+                request.getStatus().equals(Charging) &&
+                        chargeSessionMap.isRemoteStart(request.getId()) &&
+                        (chargeSessionMap.getChargeSessionInfo(request.getId()).getPreparingTimer() == null) &&
+                        !reservationCache.reserved(request.getId())
+        ) {
+            startTransaction.sendStartTransaction(chargeSessionMap.getChargeSessionInfo(request.getId()));
+        }
+    }
+
+    private void tryRemoteStartAndStopPreparingTimer(StatusNotificationRequest request) {
+        if (request.getStatus().equals(Preparing) && chargeSessionMap.isRemoteStart(request.getId()) &&
+                !reservationCache.reserved(request.getId())
+        ) {
+            chargeSessionMap.stopPreparingTimer(request.getId());
+            if (chargeSessionMap.canSendStartTransaction(request.getId())) {
+                startTransaction.sendStartTransaction(chargeSessionMap.getChargeSessionInfo(request.getId()));
+            }
+        }
     }
 }
