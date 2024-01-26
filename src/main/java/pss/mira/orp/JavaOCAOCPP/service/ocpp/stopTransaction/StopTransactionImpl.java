@@ -10,6 +10,7 @@ import eu.chargetime.ocpp.model.core.StopTransactionRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import pss.mira.orp.JavaOCAOCPP.models.requests.rabbit.DBTablesChangeRequest;
+import pss.mira.orp.JavaOCAOCPP.models.requests.rabbit.DBTablesCreateRequest;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
@@ -159,8 +160,8 @@ public class StopTransactionImpl implements StopTransaction {
     public void checkTransactionCreation(List<Object> parsedMessage, List<Object> cashedRequest) {
         Map<String, String> map = (Map<String, String>) parsedMessage.get(2);
         if (!map.get("result").equals("Accepted")) {
-            Map<String, Object> body = (Map<String, Object>) cashedRequest.get(3);
-            List<Map<String, String>> values = (List<Map<String, String>>) body.get("values");
+            DBTablesCreateRequest createRequest = (DBTablesCreateRequest) cashedRequest.get(3);
+            List<Map<String, String>> values = createRequest.getValues();
             int connectorId = values.stream()
                     .filter(transactionParam -> transactionParam.get("key").equals("connector_id")).
                     findFirst().map(transactionParam -> Integer.parseInt(transactionParam.get("value")))

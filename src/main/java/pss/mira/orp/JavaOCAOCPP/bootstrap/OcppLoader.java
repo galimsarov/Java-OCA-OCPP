@@ -45,7 +45,7 @@ public class OcppLoader implements CommandLineRunner {
 
         Thread connectorsInfoThread = getConnectorsInfoThread();
         connectorsInfoThread.start();
-        // ["db","048f347f-4810-4b8f-a468-d0965a348740",{"tables":[{"nameTable":"reservation","result":[]}]}]
+
         sender.sendRequestToQueue(
                 bd.name(),
                 UUID.randomUUID().toString(),
