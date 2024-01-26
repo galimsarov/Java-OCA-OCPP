@@ -106,8 +106,10 @@ public class ListenerImpl implements Listener {
                             case "RemoteStartTransaction" ->
                                     coreHandler.setRemoteStartStopStatus(parsedMessage, "start");
                             case "RemoteStopTransaction" -> coreHandler.setRemoteStartStopStatus(parsedMessage, "stop");
-                            case "reservation" -> reservationCache.addToCache(parsedMessage);
+                            case "reservation" -> reservationCache.createCache(parsedMessage);
                             case "Reset" -> coreHandler.setResetStatus(parsedMessage);
+                            case "transaction1" ->
+                                    stopTransaction.checkTransactionCreation(parsedMessage, cashedRequest);
                             case "UnlockConnector" -> coreHandler.setUnlockConnectorStatus(parsedMessage);
                             // reservation
                             case "getConfigurationForReservationHandler" ->
@@ -143,7 +145,7 @@ public class ListenerImpl implements Listener {
     @Override
     // prod, test -> connectorsInfoOcpp
     // dev -> myQueue1
-    @RabbitListener(queues = "myQueue1")
+    @RabbitListener(queues = "connectorsInfoOcpp")
     public void processConnectorsInfo(String message) {
         log.info("Received from connectorsInfoOcpp queue: " + message);
         try {
@@ -160,6 +162,18 @@ public class ListenerImpl implements Listener {
             log.error("Error when parsing a message from the broker");
         }
         chargeSessionMap.deleteNotStartedRemoteTransactions();
+    }
+
+    @Override
+    @RabbitListener(queues = "reservationOcpp")
+    public void processReservation(String message) {
+        log.info("Received from reservationOcpp queue: " + message);
+        try {
+            List<Map<String, Object>> parsedMessage = objectMapper.readValue(message, List.class);
+            reservationCache.addToCache(parsedMessage);
+        } catch (Exception e) {
+            log.error("Error when parsing a message from the broker");
+        }
     }
 
     private void removeFromChargingAndStopRemote(StatusNotificationRequest request) {

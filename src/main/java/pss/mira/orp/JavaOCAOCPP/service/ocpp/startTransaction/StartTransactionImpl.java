@@ -10,7 +10,7 @@ import eu.chargetime.ocpp.model.core.StartTransactionConfirmation;
 import eu.chargetime.ocpp.model.core.StartTransactionRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import pss.mira.orp.JavaOCAOCPP.models.requests.rabbit.DBTablesChangeRequest;
+import pss.mira.orp.JavaOCAOCPP.models.requests.rabbit.DBTablesCreateRequest;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.chargeSessionInfo.ChargeSessionInfo;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
@@ -137,10 +137,11 @@ public class StartTransactionImpl implements StartTransaction {
                     bd.name(),
                     UUID.randomUUID().toString(),
                     Change.name(),
-                    new DBTablesChangeRequest(
+                    new DBTablesCreateRequest(
                             transaction1.name(),
-                            "transaction_id:" + startTransactionConfirmation.getTransactionId(),
                             List.of(
+                                    Map.of("key", "transaction_id", "value",
+                                            startTransactionConfirmation.getTransactionId().toString()),
                                     Map.of("key", "id_tag", "value", idTag),
                                     Map.of("key", "connector_id", "value", String.valueOf(connectorId)),
                                     Map.of("key", "start_date_time", "value",

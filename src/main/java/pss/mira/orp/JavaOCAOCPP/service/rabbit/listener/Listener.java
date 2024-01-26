@@ -4,4 +4,6 @@ public interface Listener {
     void processOCPP(String message);
 
     void processConnectorsInfo(String message);
+
+    void processReservation(String message);
 }

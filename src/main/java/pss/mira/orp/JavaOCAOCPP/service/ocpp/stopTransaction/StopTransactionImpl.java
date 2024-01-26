@@ -14,6 +14,7 @@ import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.core.CoreHandler;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.meterValues.MeterValues;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 
 import java.time.ZonedDateTime;
@@ -22,23 +23,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import static eu.chargetime.ocpp.model.core.Reason.Other;
-import static eu.chargetime.ocpp.model.core.Reason.Remote;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.Change;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.SaveToCache;
+import static eu.chargetime.ocpp.model.core.Reason.*;
+import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.*;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.transaction1;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Queues.bd;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Queues.ocppCache;
+import static pss.mira.orp.JavaOCAOCPP.models.enums.Queues.*;
 import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.formatStartStopTransactionDateTime;
 import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.formatStartStopTransactionDateTimeUTC;
 
 @Service
 @Slf4j
 public class StopTransactionImpl implements StopTransaction {
+    private final MeterValues meterValues;
     private final BootNotification bootNotification;
     private final ChargeSessionMap chargeSessionMap;
     private final ConnectorsInfoCache connectorsInfoCache;
     private final CoreHandler coreHandler;
+    private String startTransactionStatus = null;
     private final Sender sender;
 
     public StopTransactionImpl(
@@ -46,12 +46,14 @@ public class StopTransactionImpl implements StopTransaction {
             ChargeSessionMap chargeSessionMap,
             ConnectorsInfoCache connectorsInfoCache,
             CoreHandler coreHandler,
+            MeterValues meterValues,
             Sender sender
     ) {
         this.bootNotification = bootNotification;
         this.chargeSessionMap = chargeSessionMap;
         this.connectorsInfoCache = connectorsInfoCache;
         this.coreHandler = coreHandler;
+        this.meterValues = meterValues;
         this.sender = sender;
     }
 
@@ -142,6 +144,7 @@ public class StopTransactionImpl implements StopTransaction {
         } else {
             // Client returns a promise which will be filled once it receives a confirmation.
             try {
+                log.info("Sent to central system: " + request);
                 client.send(request).whenComplete((confirmation, ex) -> {
                     log.info("Received from the central system: " + confirmation);
                     handleResponse("", "", confirmation, connectorId, Remote.name());
@@ -150,6 +153,59 @@ public class StopTransactionImpl implements StopTransaction {
                 log.warn("An error occurred while sending or processing stop transaction request");
             }
         }
+    }
+
+    @Override
+    public void checkTransactionCreation(List<Object> parsedMessage, List<Object> cashedRequest) {
+        Map<String, String> map = (Map<String, String>) parsedMessage.get(2);
+        if (!map.get("result").equals("Accepted")) {
+            Map<String, Object> body = (Map<String, Object>) cashedRequest.get(3);
+            List<Map<String, String>> values = (List<Map<String, String>>) body.get("values");
+            int connectorId = values.stream()
+                    .filter(transactionParam -> transactionParam.get("key").equals("connector_id")).
+                    findFirst().map(transactionParam -> Integer.parseInt(transactionParam.get("value")))
+                    .orElse(0);
+            if (connectorId != 0) {
+                ClientCoreProfile core = coreHandler.getCore();
+                JSONClient client = bootNotification.getClient();
+                // Use the feature profile to help create event
+                StopTransactionRequest request = core.createStopTransactionRequest(
+                        connectorsInfoCache.getFullStationConsumedEnergy(connectorId), ZonedDateTime.now(),
+                        chargeSessionMap.getChargeSessionInfo(connectorId).getTransactionId()
+                );
+                request.setReason(DeAuthorized);
+
+                if (client == null) {
+                    sender.sendRequestToQueue(
+                            ocppCache.name(),
+                            UUID.randomUUID().toString(),
+                            SaveToCache.name(),
+                            request,
+                            "stopTransaction"
+                    );
+                } else {
+                    // Client returns a promise which will be filled once it receives a confirmation.
+                    try {
+                        log.info("Sent to central system: " + request);
+                        client.send(request).whenComplete((confirmation, ex) -> {
+                            log.info("Received from the central system: " + confirmation);
+                            sender.sendRequestToQueue(
+                                    mainChargePointLogic.name(),
+                                    UUID.randomUUID().toString(),
+                                    StopChargeSession.name(),
+                                    Map.of("connectorId", connectorId),
+                                    StopChargeSession.name()
+                            );
+                        });
+                    } catch (OccurenceConstraintException | UnsupportedFeatureException ignored) {
+                        log.warn("An error occurred while sending or processing stop transaction request");
+                    }
+                }
+                chargeSessionMap.removeFromChargeSessionMap(connectorId);
+                meterValues.removeFromChargingConnectors(connectorId);
+            }
+        }
+        startTransactionStatus = null;
     }
 
     /**

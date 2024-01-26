@@ -11,6 +11,7 @@ public enum Actions {
     RemoteStartTransaction,
     RemoteStopTransaction,
     Reset,
+    StopChargeSession,
     UnlockConnector,
     // ocpp, то есть, сам себе
     Authorize,

@@ -40,6 +40,56 @@ public class ReservationHandlerImpl implements ReservationHandler {
             @Override
             public ReserveNowConfirmation handleReserveNowRequest(ReserveNowRequest request) {
                 log.info("Received from the central system: " + request.toString());
+                fillConfigurationList();
+                ReserveNowConfirmation result = new ReserveNowConfirmation(Unavailable);
+                if (reservationSupported()) {
+                    String connectorStatus = connectorsInfoCache.getStatus(request.getConnectorId());
+                    if (connectorStatus.equals("Charging") ||
+                            connectorStatus.equals("Preparing") ||
+                            connectorStatus.equals("Finishing")) {
+                        result.setStatus(Occupied);
+                    } else if (!connectorStatus.equals("Unavailable")) {
+                        fillReservationResult(request);
+                        if (reservationResult.equals("Accepted")) {
+                            result.setStatus(Accepted);
+                        } else {
+                            result.setStatus(Rejected);
+                        }
+                        reservationResult = null;
+                    }
+                }
+                configurationList = null;
+                log.info("Send to the central system: " + result);
+                return result;
+            }
+
+            private void fillReservationResult(ReserveNowRequest request) {
+                if ((request.getConnectorId() != 0) || reserveConnectorsZeroSupported()) {
+                    sender.sendRequestToQueue(
+                            bd.name(),
+                            UUID.randomUUID().toString(),
+                            Change.name(),
+                            new DBTablesChangeRequest(
+                                    reservation.name(),
+                                    "reservation_id:" + request.getReservationId(),
+                                    getReservationValues(request)),
+                            ReserveNow.name()
+                    );
+                    while (true) {
+                        if (reservationResult == null) {
+                            try {
+                                Thread.sleep(1000);
+                            } catch (InterruptedException e) {
+                                log.error("An error while waiting the reservation status");
+                            }
+                        } else {
+                            break;
+                        }
+                    }
+                }
+            }
+
+            private void fillConfigurationList() {
                 sender.sendRequestToQueue(
                         bd.name(),
                         UUID.randomUUID().toString(),
@@ -58,48 +108,6 @@ public class ReservationHandlerImpl implements ReservationHandler {
                         break;
                     }
                 }
-                ReserveNowConfirmation result = new ReserveNowConfirmation(Unavailable);
-                if (reservationSupported()) {
-                    String connectorStatus = connectorsInfoCache.getStatus(request.getConnectorId());
-                    if (connectorStatus.equals("Charging") ||
-                            connectorStatus.equals("Preparing") ||
-                            connectorStatus.equals("Finishing")) {
-                        result.setStatus(Occupied);
-                    } else if (!connectorStatus.equals("Unavailable")) {
-                        if ((request.getConnectorId() != 0) || reserveConnectorsZeroSupported()) {
-                            sender.sendRequestToQueue(
-                                    bd.name(),
-                                    UUID.randomUUID().toString(),
-                                    Change.name(),
-                                    new DBTablesChangeRequest(
-                                            reservation.name(),
-                                            "reservation_id:" + request.getReservationId(),
-                                            getReservationValues(request)),
-                                    ReserveNow.name()
-                            );
-                        }
-                        while (true) {
-                            if (reservationResult == null) {
-                                try {
-                                    Thread.sleep(1000);
-                                } catch (InterruptedException e) {
-                                    log.error("An error while waiting the reservation status");
-                                }
-                            } else {
-                                break;
-                            }
-                        }
-                        if (reservationResult.equals("Accepted")) {
-                            result.setStatus(Accepted);
-                        } else {
-                            result.setStatus(Rejected);
-                        }
-                        reservationResult = null;
-                    }
-                }
-                configurationList = null;
-                log.info("Send to the central system: " + result);
-                return result;
             }
 
             private List<Map<String, String>> getReservationValues(ReserveNowRequest request) {

@@ -7,8 +7,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.SystemUtils;
 import org.springframework.stereotype.Service;
 import pss.mira.orp.JavaOCAOCPP.models.requests.rabbit.DBTablesChangeRequest;
+import pss.mira.orp.JavaOCAOCPP.models.requests.rabbit.DBTablesDeleteRequest;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
+import pss.mira.orp.JavaOCAOCPP.service.cache.reservation.ReservationCache;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 
 import java.io.IOException;
@@ -33,6 +35,7 @@ import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.getResult;
 public class CoreHandlerImpl implements CoreHandler {
     private final ConnectorsInfoCache connectorsInfoCache;
     private final ChargeSessionMap chargeSessionMap;
+    private final ReservationCache reservationCache;
     private final Sender sender;
     private AvailabilityStatus availabilityStatus = null;
     private List<Map<String, Object>> configurationList = null;
@@ -43,9 +46,15 @@ public class CoreHandlerImpl implements CoreHandler {
     private ResetStatus resetStatus = null;
     private UnlockStatus unlockConnectorStatus = null;
 
-    public CoreHandlerImpl(ConnectorsInfoCache connectorsInfoCache, ChargeSessionMap chargeSessionMap, Sender sender) {
+    public CoreHandlerImpl(
+            ConnectorsInfoCache connectorsInfoCache,
+            ChargeSessionMap chargeSessionMap,
+            ReservationCache reservationCache,
+            Sender sender
+    ) {
         this.connectorsInfoCache = connectorsInfoCache;
         this.chargeSessionMap = chargeSessionMap;
+        this.reservationCache = reservationCache;
         this.sender = sender;
     }
 
@@ -87,13 +96,7 @@ public class CoreHandlerImpl implements CoreHandler {
             @Override
             public GetConfigurationConfirmation handleGetConfigurationRequest(GetConfigurationRequest request) {
                 log.info("Received from the central system: " + request.toString());
-                sender.sendRequestToQueue(
-                        bd.name(),
-                        UUID.randomUUID().toString(),
-                        Get.name(),
-                        getDBTablesGetRequest(List.of(configuration.name())),
-                        getConfigurationForCoreHandler.name()
-                );
+                getConfigurationListFromDB();
                 while (true) {
                     if (configurationList == null) {
                         try {
@@ -184,13 +187,12 @@ public class CoreHandlerImpl implements CoreHandler {
                     RemoteStartTransactionRequest request
             ) {
                 log.info("Received from the central system: " + request.toString());
-                sender.sendRequestToQueue(
-                        bd.name(),
-                        UUID.randomUUID().toString(),
-                        Get.name(),
-                        getDBTablesGetRequest(List.of(configuration.name())),
-                        getConfigurationForCoreHandler.name()
-                );
+                RemoteStartTransactionConfirmation reservationReject = getReservationReject(request);
+                if (reservationReject != null) {
+                    log.info("Sent to central system: " + reservationReject);
+                    return reservationReject;
+                }
+                getConfigurationListFromDB();
                 while (true) {
                     if (configurationList == null) {
                         try {
@@ -200,55 +202,15 @@ public class CoreHandlerImpl implements CoreHandler {
                         }
                     } else {
                         if (getAuthorizeRemoteTxRequests()) {
-                            // AuthorizeRemoteTxRequests в таблице configuration -> true
-                            log.info("IdTag is sent for authorization to the central system");
-                            sender.sendRequestToQueue(
-                                    ocpp.name(),
-                                    UUID.randomUUID().toString(),
-                                    Authorize.name(),
-                                    Map.of("idTag", request.getIdTag()),
-                                    Authorize.name()
-                            );
-                            while (true) {
-                                if (authorizeConfirmation == null) {
-                                    try {
-                                        Thread.sleep(1000);
-                                    } catch (InterruptedException e) {
-                                        log.error("Аn error while waiting for a authorize response from the central " +
-                                                "system");
-                                    }
-                                } else {
-                                    break;
-                                }
-                            }
-                            if (!authorizeConfirmation.getIdTagInfo().getStatus().equals(Accepted)) {
-                                authorizeConfirmation = null;
-                                log.warn("The central system tried to start a transaction with an unauthorized idTag");
-                                return new RemoteStartTransactionConfirmation(Rejected);
+                            RemoteStartTransactionConfirmation notAuthorizedReject = getNotAuthorizedReject(request);
+                            if (notAuthorizedReject != null) {
+                                log.info("Sent to central system: " + notAuthorizedReject);
+                                return notAuthorizedReject;
                             }
                         }
                         authorizeConfirmation = null;
                         configurationList = null;
-                        Map<String, Integer> map = new HashMap<>();
-                        map.put("connectorId", request.getConnectorId());
-                        sender.sendRequestToQueue(
-                                mainChargePointLogic.name(),
-                                UUID.randomUUID().toString(),
-                                RemoteStartTransaction.name(),
-                                map,
-                                RemoteStartTransaction.name()
-                        );
-                        while (true) {
-                            if (remoteStartStatus == null) {
-                                try {
-                                    Thread.sleep(1000);
-                                } catch (InterruptedException e) {
-                                    log.error("Аn error while waiting for remote start transaction response");
-                                }
-                            } else {
-                                break;
-                            }
-                        }
+                        interactWithChargePointLogic(request);
                         RemoteStartTransactionConfirmation result =
                                 new RemoteStartTransactionConfirmation(remoteStartStatus);
                         if (remoteStartStatus.equals(RemoteStartStopStatus.Accepted)) {
@@ -262,6 +224,91 @@ public class CoreHandlerImpl implements CoreHandler {
                         return result;
                     }
                 }
+            }
+
+            private RemoteStartTransactionConfirmation getReservationReject(RemoteStartTransactionRequest request) {
+                Integer reservationId = reservationCache.getReservationId(request.getConnectorId(), request.getIdTag());
+                if (reservationId != null) {
+                    sender.sendRequestToQueue(
+                            bd.name(),
+                            UUID.randomUUID().toString(),
+                            Delete.name(),
+                            new DBTablesDeleteRequest(
+                                    reservation.name(),
+                                    "reservation_id",
+                                    reservationId),
+                            CancelReservation.name()
+                    );
+                    reservationCache.remove(reservationId);
+                }
+                if (reservationCache.reserved(request.getConnectorId())) {
+                    log.warn("The central system tried to start a transaction on the reserved connector");
+                    return new RemoteStartTransactionConfirmation(Rejected);
+                }
+                return null;
+            }
+
+            private void getConfigurationListFromDB() {
+                sender.sendRequestToQueue(
+                        bd.name(),
+                        UUID.randomUUID().toString(),
+                        Get.name(),
+                        getDBTablesGetRequest(List.of(configuration.name())),
+                        getConfigurationForCoreHandler.name()
+                );
+            }
+
+            private void interactWithChargePointLogic(RemoteStartTransactionRequest request) {
+                Map<String, Integer> map = new HashMap<>();
+                map.put("connectorId", request.getConnectorId());
+                sender.sendRequestToQueue(
+                        mainChargePointLogic.name(),
+                        UUID.randomUUID().toString(),
+                        RemoteStartTransaction.name(),
+                        map,
+                        RemoteStartTransaction.name()
+                );
+                while (true) {
+                    if (remoteStartStatus == null) {
+                        try {
+                            Thread.sleep(1000);
+                        } catch (InterruptedException e) {
+                            log.error("Аn error while waiting for remote start transaction response");
+                        }
+                    } else {
+                        break;
+                    }
+                }
+            }
+
+            private RemoteStartTransactionConfirmation getNotAuthorizedReject(RemoteStartTransactionRequest request) {
+                // AuthorizeRemoteTxRequests в таблице configuration -> true
+                log.info("IdTag is sent for authorization to the central system");
+                sender.sendRequestToQueue(
+                        ocpp.name(),
+                        UUID.randomUUID().toString(),
+                        Authorize.name(),
+                        Map.of("idTag", request.getIdTag()),
+                        Authorize.name()
+                );
+                while (true) {
+                    if (authorizeConfirmation == null) {
+                        try {
+                            Thread.sleep(1000);
+                        } catch (InterruptedException e) {
+                            log.error("Аn error while waiting for a authorize response from the central " +
+                                    "system");
+                        }
+                    } else {
+                        break;
+                    }
+                }
+                if (!authorizeConfirmation.getIdTagInfo().getStatus().equals(Accepted)) {
+                    authorizeConfirmation = null;
+                    log.warn("The central system tried to start a transaction with an unauthorized idTag");
+                    return new RemoteStartTransactionConfirmation(Rejected);
+                }
+                return null;
             }
 
             private boolean getAuthorizeRemoteTxRequests() {
@@ -414,6 +461,10 @@ public class CoreHandlerImpl implements CoreHandler {
             log.error("An error occurred while receiving availabilityStatus from the message");
         }
     }
+
+    /**
+     * ["db","23c06964-1af0-4fbc-9240-c7f8e7318348",{"tables":[{"nameTable":"configuration","result":[{"reboot":false,"readonly":false,"type":"bool","value":"false","key":"AuthorizationCacheEnabled"},{"reboot":false,"readonly":false,"type":"int","value":"0","key":"BlinkRepeat"},{"reboot":false,"readonly":false,"type":"int","value":"0","key":"ClockAlignedDataInterval"},{"reboot":false,"readonly":false,"type":"int","value":"40","key":"ConnectionTimeOut"},{"reboot":false,"readonly":false,"type":"string","key":"ConnectorPhaseRotation"},{"reboot":false,"readonly":true,"type":"int","value":"0","key":"ConnectorPhaseRotationLength"},{"reboot":false,"readonly":true,"type":"int","value":"0","key":"GetConfigurationMaxKeys"},{"reboot":false,"readonly":false,"type":"int","key":"LightIntensity"},{"reboot":false,"readonly":false,"type":"bool","value":"true","key":"LocalAuthorizeOffline"},{"reboot":false,"readonly":false,"type":"bool","value":"true","key":"LocalPreAuthorize"},{"reboot":false,"readonly":false,"type":"int","value":"0","key":"MaxEnergyOnInvalidId"},{"reboot":false,"readonly":false,"type":"string","key":"MeterValuesAlignedData"},{"reboot":false,"readonly":true,"type":"int","value":"0","key":"MeterValuesAlignedDataMaxLength"},{"reboot":false,"readonly":false,"type":"string","value":"Current.Import,Current.Offered,Energy.Active.Import.Register,Power.Active.Import,SoC","key":"MeterValuesSampledData"},{"reboot":false,"readonly":true,"type":"int","value":"0","key":"MeterValuesSampledDataMaxLength"},{"reboot":false,"readonly":false,"type":"int","value":"20","key":"MeterValueSampleInterval"},{"reboot":false,"readonly":false,"type":"int","value":"0","key":"MinimumStatusDuration"},{"reboot":false,"readonly":true,"type":"int","value":"3","key":"NumberOfConnectors"},{"reboot":false,"readonly":false,"type":"int","value":"3","key":"ResetRetries"},{"reboot":false,"readonly":false,"type":"bool","value":"true","key":"StopTransactionOnEVSideDisconnect"},{"reboot":false,"readonly":false,"type":"bool","value":"true","key":"StopTransactionOnInvalidId"},{"reboot":false,"readonly":false,"type":"string","value":"PDU","key":"StopTxnAlignedData"},{"reboot":false,"readonly":false,"type":"int","value":"0","key":"StopTxnAlignedDataMaxLength"},{"reboot":false,"readonly":false,"type":"string","key":"StopTxnSampledData"},{"reboot":false,"readonly":true,"type":"int","value":"0","key":"StopTxnSampledDataMaxLength"},{"reboot":false,"readonly":true,"type":"string","value":"Core,Reservation,LocalAuthListManagement,SmartCharging,RemoteTrigger","key":"SupportedFeatureProfiles"},{"reboot":false,"readonly":true,"type":"int","value":"5","key":"SupportedFeatureProfilesMaxLength"},{"reboot":false,"readonly":false,"type":"int","value":"5","key":"TransactionMessageAttempts"},{"reboot":false,"readonly":false,"type":"int","value":"300","key":"TransactionMessageRetryInterval"},{"reboot":false,"readonly":false,"type":"bool","value":"true","key":"UnlockConnectorOnEVSideDisconnect"},{"reboot":false,"readonly":false,"type":"int","value":"30","key":"WebSocketPingInterval"},{"reboot":false,"readonly":false,"type":"bool","value":"true","key":"LocalAuthListEnabled"},{"reboot":false,"readonly":true,"type":"int","value":"1000","key":"LocalAuthListMaxLength"},{"reboot":false,"readonly":true,"type":"int","value":"0","key":"SendLocalListMaxLength"},{"reboot":false,"readonly":true,"type":"bool","value":"true","key":"ReserveConnectorZeroSupported"},{"reboot":false,"readonly":true,"type":"int","value":"2","key":"ChargeProfileMaxStackLevel"},{"reboot":false,"readonly":true,"type":"string","value":"Current","key":"ChargingScheduleAllowedChargingRateUnit"},{"reboot":false,"readonly":true,"type":"int","value":"3","key":"ChargingScheduleMaxPeriods"},{"reboot":false,"readonly":true,"type":"bool","value":"false","key":"ConnectorSwitch3to1PhaseSupport"},{"reboot":false,"readonly":true,"type":"int","value":"0","key":"MaxChargingProfilesInstalled"},{"reboot":false,"readonly":false,"type":"int","value":"300","key":"HeartbeatInterval"},{"reboot":false,"readonly":false,"type":"int","value":"300","key":"HeartbeatIntervalWebFace"},{"reboot":false,"readonly":false,"type":"bool","value":"true","key":"AllowOfflineTxForUnknownId"},{"reboot":false,"readonly":false,"type":"bool","value":"false","key":"AuthorizeRemoteTxRequests"}]}]}]
+     */
 
     @Override
     public void setConfigurationList(List<Object> parsedMessage) {

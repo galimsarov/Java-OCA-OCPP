@@ -6,4 +6,6 @@ public interface StopTransaction {
     void sendLocalStop(List<Object> parsedMessage);
 
     void sendRemoteStop(int connectorId);
+
+    void checkTransactionCreation(List<Object> parsedMessage, List<Object> cashedRequest);
 }

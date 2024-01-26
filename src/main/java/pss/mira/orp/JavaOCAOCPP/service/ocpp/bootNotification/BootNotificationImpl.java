@@ -65,7 +65,9 @@ public class BootNotificationImpl implements BootNotification {
 
             if (bootNotificationRequest.getAddressCP().endsWith("/")) {
                 bootNotificationRequest.setAddressCP(
-                        bootNotificationRequest.getAddressCP().substring(0, bootNotificationRequest.getAddressCP().length() - 1)
+                        bootNotificationRequest.getAddressCP().substring(
+                                0, bootNotificationRequest.getAddressCP().length() - 1
+                        )
                 );
             }
 

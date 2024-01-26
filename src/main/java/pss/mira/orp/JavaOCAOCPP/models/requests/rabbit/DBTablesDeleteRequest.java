@@ -8,5 +8,5 @@ import lombok.Data;
 public class DBTablesDeleteRequest {
     private String nameTable;
     private String key;
-    private String value;
+    private Object value;
 }
