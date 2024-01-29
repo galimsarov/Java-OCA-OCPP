@@ -4,7 +4,7 @@ import eu.chargetime.ocpp.model.core.ChargePointErrorCode;
 import eu.chargetime.ocpp.model.core.ChargePointStatus;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import pss.mira.orp.JavaOCAOCPP.models.requests.ocpp.StatusNotificationRequest;
+import pss.mira.orp.JavaOCAOCPP.models.info.ocpp.StatusNotificationInfo;
 import pss.mira.orp.JavaOCAOCPP.service.cache.reservation.ReservationCache;
 
 import java.util.ArrayList;
@@ -29,7 +29,7 @@ public class ConnectorsInfoCacheImpl implements ConnectorsInfoCache {
      * [{"events":{"listeners":[]},"id":1,"slaveId":5,"status":"Available","error":"NoError","chargePointVendorError":"NoErrorVendor","errorCode":0,"UnavailableTime":0,"lastChargePointVendorError":"NoErrorVendor","timer":0,"startTimer":0,"timeoutButtonStartStop":0,"excessEnergy":0,"connected":false,"ev_requested_voltage":0.0,"ev_requested_current":0.0,"ev_requested_power":0,"lastTime":"Jan 18, 2024, 5:39:34 AM","lastConnectorStatus":"Available","startFlag":false,"limitCalc":0.0,"voltageFromPhases":220.0,"lastAmperage":0.0,"lastPower":0.0,"MaxDynamicPower":0.0,"MaxDynamicAmperage":0.0,"CounterDynamic":0,"rfidStartLocal":false,"rfidStart":false,"buttonStart":false,"ConnectorInsertedTime":0,"FalgConnectorInsertedTimeSend":false,"EVCCID":"","StartStopButtonPressed":false,"remoteStart":false,"StartFromButton":false,"sentPreparing":false,"errorMiraMeter":false,"reserved":false,"spamCount":0,"spamBlock":false,"timeLastStatusSending":"Jan 18, 2024, 5:39:34 AM","fullStationExternConsumedEnergy":0.0,"statusPrecharge":"NONE","emergencyButtonPressed":false,"openDoor":false,"mode3StopButtonPressed":false,"connectedToEV":false,"consumedEnergy":0,"percent":0,"chargingTime":0,"power":0.0,"currentAmperage":0.0,"currentVoltage":0,"remainingTime":0,"type":"GBT","minAmperage":0.0,"maxAmperage":155.0,"minPower":0.0,"maxPower":150.0,"minVoltage":0,"maxVoltage":0,"levelPWM":0,"statusPWM":"WAITING","wellPWM":0,"maxSessionAmperage":0.0,"maxSessionPower":0.0,"temperaturePwM":0,"availability":"Operative","fullStationConsumedEnergy":100,"CCSControllerVersion":0,"mapModulInfo":{"Модуль 1 ":["NO_ERROR"],"Модуль 2 ":["NO_ERROR"],"Модуль 3 ":["NO_ERROR"],"Модуль 4 ":["NO_ERROR"],"Модуль 5 ":["NO_ERROR"],"Модуль 6 ":["NO_ERROR"]},"stationInfo":[],"mapTemperatureCmInfo":{"Модуль 1":0,"Модуль 2":0,"Модуль 3":0,"Модуль 4":0,"Модуль 5":0,"Модуль 6":0},"CCSControllerConfig":0,"CCSMatchingDeviceVersion":0,"fullStationConsumedEnergy":100}]
      */
     @Override
-    public List<StatusNotificationRequest> addToCache(List<Map<String, Object>> connectorsInfo) {
+    public List<StatusNotificationInfo> addToCache(List<Map<String, Object>> connectorsInfo) {
         while (true) {
             if (reservationCache.filled()) {
                 break;
@@ -41,7 +41,7 @@ public class ConnectorsInfoCacheImpl implements ConnectorsInfoCache {
                 }
             }
         }
-        List<StatusNotificationRequest> result = new ArrayList<>();
+        List<StatusNotificationInfo> result = new ArrayList<>();
         if (!connectorsMap.isEmpty()) {
             for (Map<String, Object> map : connectorsInfo) {
                 int id = Integer.parseInt(map.get("id").toString());
@@ -86,16 +86,16 @@ public class ConnectorsInfoCacheImpl implements ConnectorsInfoCache {
     }
 
     @Override
-    public List<StatusNotificationRequest> createCache(List<Object> parsedMessage) {
+    public List<StatusNotificationInfo> createCache(List<Object> parsedMessage) {
         Map<String, List<Map<String, Object>>> map = (Map<String, List<Map<String, Object>>>) parsedMessage.get(2);
         return addToCache(map.get("connectors"));
     }
 
-    private void addToResult(String newError, String newStatus, List<StatusNotificationRequest> result, int id) {
+    private void addToResult(String newError, String newStatus, List<StatusNotificationInfo> result, int id) {
         ChargePointErrorCode parsedCode = getErrorCode(newError);
         ChargePointStatus parsedStatus = getChargePointStatus(newStatus);
         if ((parsedCode != null) && (parsedStatus != null)) {
-            result.add(new StatusNotificationRequest(id, parsedCode, parsedStatus));
+            result.add(new StatusNotificationInfo(id, parsedCode, parsedStatus));
         } else {
             log.error("The status or error of connector " + id +
                     " does not correspond to the values of the corresponding enum");
@@ -137,9 +137,9 @@ public class ConnectorsInfoCacheImpl implements ConnectorsInfoCache {
     }
 
     @Override
-    public StatusNotificationRequest getStatusNotificationRequest(int connectorId) {
+    public StatusNotificationInfo getStatusNotificationRequest(int connectorId) {
         Map<String, Object> connectorMap = connectorsMap.get(connectorId);
-        return new StatusNotificationRequest(
+        return new StatusNotificationInfo(
                 connectorId,
                 getErrorCode(connectorMap.get("errorCode").toString()),
                 getChargePointStatus(connectorMap.get("status").toString())

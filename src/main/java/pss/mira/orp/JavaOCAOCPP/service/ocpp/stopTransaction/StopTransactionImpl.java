@@ -9,12 +9,13 @@ import eu.chargetime.ocpp.model.core.Reason;
 import eu.chargetime.ocpp.model.core.StopTransactionRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import pss.mira.orp.JavaOCAOCPP.models.requests.rabbit.DBTablesChangeRequest;
-import pss.mira.orp.JavaOCAOCPP.models.requests.rabbit.DBTablesCreateRequest;
+import pss.mira.orp.JavaOCAOCPP.models.info.rabbit.DBTablesChangeInfo;
+import pss.mira.orp.JavaOCAOCPP.models.info.rabbit.DBTablesCreateInfo;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.core.CoreHandler;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.remoteTrigger.RemoteTriggerHandler;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.meterValues.MeterValues;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 
@@ -34,6 +35,7 @@ import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.formatStartStopTransa
 @Service
 @Slf4j
 public class StopTransactionImpl implements StopTransaction {
+    private final RemoteTriggerHandler remoteTriggerHandler;
     private final MeterValues meterValues;
     private final BootNotification bootNotification;
     private final ChargeSessionMap chargeSessionMap;
@@ -48,6 +50,7 @@ public class StopTransactionImpl implements StopTransaction {
             ConnectorsInfoCache connectorsInfoCache,
             CoreHandler coreHandler,
             MeterValues meterValues,
+            RemoteTriggerHandler remoteTriggerHandler,
             Sender sender
     ) {
         this.bootNotification = bootNotification;
@@ -55,6 +58,7 @@ public class StopTransactionImpl implements StopTransaction {
         this.connectorsInfoCache = connectorsInfoCache;
         this.coreHandler = coreHandler;
         this.meterValues = meterValues;
+        this.remoteTriggerHandler = remoteTriggerHandler;
         this.sender = sender;
     }
 
@@ -97,6 +101,7 @@ public class StopTransactionImpl implements StopTransaction {
                 } else {
                     // Client returns a promise which will be filled once it receives a confirmation.
                     try {
+                        remoteTriggerHandler.waitForRemoteTriggerTaskComplete();
                         log.info("Sent to central system: " + request);
                         client.send(request).whenComplete((confirmation, ex) -> {
                             log.info("Received from the central system: " + confirmation);
@@ -145,6 +150,7 @@ public class StopTransactionImpl implements StopTransaction {
         } else {
             // Client returns a promise which will be filled once it receives a confirmation.
             try {
+                remoteTriggerHandler.waitForRemoteTriggerTaskComplete();
                 log.info("Sent to central system: " + request);
                 client.send(request).whenComplete((confirmation, ex) -> {
                     log.info("Received from the central system: " + confirmation);
@@ -160,7 +166,7 @@ public class StopTransactionImpl implements StopTransaction {
     public void checkTransactionCreation(List<Object> parsedMessage, List<Object> cashedRequest) {
         Map<String, String> map = (Map<String, String>) parsedMessage.get(2);
         if (!map.get("result").equals("Accepted")) {
-            DBTablesCreateRequest createRequest = (DBTablesCreateRequest) cashedRequest.get(3);
+            DBTablesCreateInfo createRequest = (DBTablesCreateInfo) cashedRequest.get(3);
             List<Map<String, String>> values = createRequest.getValues();
             int connectorId = values.stream()
                     .filter(transactionParam -> transactionParam.get("key").equals("connector_id")).
@@ -187,6 +193,7 @@ public class StopTransactionImpl implements StopTransaction {
                 } else {
                     // Client returns a promise which will be filled once it receives a confirmation.
                     try {
+                        remoteTriggerHandler.waitForRemoteTriggerTaskComplete();
                         log.info("Sent to central system: " + request);
                         client.send(request).whenComplete((confirmation, ex) -> {
                             log.info("Received from the central system: " + confirmation);
@@ -221,7 +228,7 @@ public class StopTransactionImpl implements StopTransaction {
                 bd.name(),
                 UUID.randomUUID().toString(),
                 Change.name(),
-                new DBTablesChangeRequest(
+                new DBTablesChangeInfo(
                         transaction1.name(),
                         "transaction_id:" +
                                 chargeSessionMap.getChargeSessionInfo(connectorId).getTransactionId(),

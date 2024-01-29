@@ -10,12 +10,13 @@ import eu.chargetime.ocpp.model.core.StartTransactionConfirmation;
 import eu.chargetime.ocpp.model.core.StartTransactionRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import pss.mira.orp.JavaOCAOCPP.models.requests.rabbit.DBTablesCreateRequest;
+import pss.mira.orp.JavaOCAOCPP.models.info.rabbit.DBTablesCreateInfo;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.chargeSessionInfo.ChargeSessionInfo;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.core.CoreHandler;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.remoteTrigger.RemoteTriggerHandler;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.meterValues.MeterValues;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 
@@ -23,11 +24,9 @@ import java.time.ZonedDateTime;
 import java.util.*;
 
 import static eu.chargetime.ocpp.model.core.AuthorizationStatus.Accepted;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.Change;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.SaveToCache;
+import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.*;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.transaction1;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Queues.bd;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Queues.ocppCache;
+import static pss.mira.orp.JavaOCAOCPP.models.enums.Queues.*;
 import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.*;
 
 @Service
@@ -38,6 +37,7 @@ public class StartTransactionImpl implements StartTransaction {
     private final ConnectorsInfoCache connectorsInfoCache;
     private final CoreHandler coreHandler;
     private final MeterValues meterValues;
+    private final RemoteTriggerHandler remoteTriggerHandler;
     private final Sender sender;
 
     public StartTransactionImpl(
@@ -46,6 +46,7 @@ public class StartTransactionImpl implements StartTransaction {
             ConnectorsInfoCache connectorsInfoCache,
             CoreHandler coreHandler,
             MeterValues meterValues,
+            RemoteTriggerHandler remoteTriggerHandler,
             Sender sender
     ) {
         this.bootNotification = bootNotification;
@@ -53,6 +54,7 @@ public class StartTransactionImpl implements StartTransaction {
         this.connectorsInfoCache = connectorsInfoCache;
         this.coreHandler = coreHandler;
         this.meterValues = meterValues;
+        this.remoteTriggerHandler = remoteTriggerHandler;
         this.sender = sender;
     }
 
@@ -89,6 +91,7 @@ public class StartTransactionImpl implements StartTransaction {
                 log.info("Sent to central system: " + request.toString());
                 // Client returns a promise which will be filled once it receives a confirmation.
                 try {
+                    remoteTriggerHandler.waitForRemoteTriggerTaskComplete();
                     client.send(request).whenComplete((confirmation, ex) -> {
                         log.info("Received from the central system: " + confirmation.toString());
                         handleResponse(consumer, requestUuid, confirmation, connectorId, idTag);
@@ -137,7 +140,7 @@ public class StartTransactionImpl implements StartTransaction {
                     bd.name(),
                     UUID.randomUUID().toString(),
                     Change.name(),
-                    new DBTablesCreateRequest(
+                    new DBTablesCreateInfo(
                             transaction1.name(),
                             List.of(
                                     Map.of("key", "transaction_id", "value",
@@ -158,8 +161,15 @@ public class StartTransactionImpl implements StartTransaction {
                     connectorId, connectorsInfoCache.getFullStationConsumedEnergy(connectorId)
             );
         } else {
-            // TODO Удалить из chargeSessionMap
-            // TODO Отправить stop
+            sender.sendRequestToQueue(
+                    mainChargePointLogic.name(),
+                    UUID.randomUUID().toString(),
+                    StopChargeSession.name(),
+                    Map.of("connectorId", connectorId),
+                    StopChargeSession.name()
+            );
+            chargeSessionMap.removeFromChargeSessionMap(connectorId);
+            meterValues.removeFromChargingConnectors(connectorId);
         }
     }
 }

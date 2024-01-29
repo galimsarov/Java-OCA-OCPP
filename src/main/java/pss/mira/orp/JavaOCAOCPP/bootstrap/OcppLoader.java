@@ -3,6 +3,7 @@ package pss.mira.orp.JavaOCAOCPP.bootstrap;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
+import pss.mira.orp.JavaOCAOCPP.models.enums.Actions;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 
@@ -40,7 +41,7 @@ public class OcppLoader implements CommandLineRunner {
                 UUID.randomUUID().toString(),
                 Get.name(),
                 getDBTablesGetRequest(List.of(config_zs.name())),
-                config_zs.name()
+                Actions.BootNotification.name()
         );
 
         Thread connectorsInfoThread = getConnectorsInfoThread();

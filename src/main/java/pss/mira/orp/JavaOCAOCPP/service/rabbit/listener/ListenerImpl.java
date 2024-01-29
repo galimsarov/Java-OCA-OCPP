@@ -5,7 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.EnableRabbit;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
-import pss.mira.orp.JavaOCAOCPP.models.requests.ocpp.StatusNotificationRequest;
+import pss.mira.orp.JavaOCAOCPP.models.info.ocpp.StatusNotificationInfo;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
 import pss.mira.orp.JavaOCAOCPP.service.cache.request.RequestCache;
@@ -91,21 +91,24 @@ public class ListenerImpl implements Listener {
                             // core
                             case "auth_list" -> authorize.setAuthMap(parsedMessage);
                             case "Authorize" -> coreHandler.setAuthorizeConfirmation(parsedMessage);
+                            case "BootNotification" ->
+                                    bootNotification.sendBootNotification(parsedMessage, "bootNotification");
                             case "changeConfiguration" -> coreHandler.setChangeConfigurationStatus(parsedMessage);
                             case "ChangeAvailability" -> coreHandler.setAvailabilityStatus(parsedMessage);
-                            case "config_zs" -> sendBootNotification(parsedMessage);
                             case "getConfigurationForCoreHandler" -> coreHandler.setConfigurationList(parsedMessage);
                             case "getConfigurationForMeterValues" -> meterValues.setConfigurationMap(parsedMessage);
                             case "GetConnectorsInfo" -> {
-                                List<StatusNotificationRequest> possibleRequests =
+                                List<StatusNotificationInfo> possibleRequests =
                                         connectorsInfoCache.createCache(parsedMessage);
-                                for (StatusNotificationRequest request : possibleRequests) {
+                                for (StatusNotificationInfo request : possibleRequests) {
                                     statusNotification.sendStatusNotification(request);
                                 }
                             }
                             case "RemoteStartTransaction" ->
                                     coreHandler.setRemoteStartStopStatus(parsedMessage, "start");
                             case "RemoteStopTransaction" -> coreHandler.setRemoteStartStopStatus(parsedMessage, "stop");
+                            case "RemoteTriggerBootNotification" ->
+                                    bootNotification.sendBootNotification(parsedMessage, "remoteTrigger");
                             case "reservation" -> reservationCache.createCache(parsedMessage);
                             case "Reset" -> coreHandler.setResetStatus(parsedMessage);
                             case "transaction1" ->
@@ -138,7 +141,9 @@ public class ListenerImpl implements Listener {
     }
 
     private void sendBootNotification(List<Object> parsedMessage) {
-        Thread sendBootNotificationThread = new Thread(() -> bootNotification.sendBootNotification(parsedMessage));
+        Thread sendBootNotificationThread = new Thread(
+                () -> bootNotification.sendBootNotification(parsedMessage, "bootNotification")
+        );
         sendBootNotificationThread.start();
     }
 
@@ -150,8 +155,8 @@ public class ListenerImpl implements Listener {
         log.info("Received from connectorsInfoOcpp queue: " + message);
         try {
             List<Map<String, Object>> parsedMessage = objectMapper.readValue(message, List.class);
-            List<StatusNotificationRequest> possibleRequests = connectorsInfoCache.addToCache(parsedMessage);
-            for (StatusNotificationRequest request : possibleRequests) {
+            List<StatusNotificationInfo> possibleRequests = connectorsInfoCache.addToCache(parsedMessage);
+            for (StatusNotificationInfo request : possibleRequests) {
                 statusNotification.sendStatusNotification(request);
                 tryRemoteStartAndStopPreparingTimer(request);
                 remoteStartForCharging(request);
@@ -176,7 +181,7 @@ public class ListenerImpl implements Listener {
         }
     }
 
-    private void removeFromChargingAndStopRemote(StatusNotificationRequest request) {
+    private void removeFromChargingAndStopRemote(StatusNotificationInfo request) {
         if (request.getStatus().equals(Finishing) && !reservationCache.reserved(request.getId())) {
             meterValues.removeFromChargingConnectors(request.getId());
             if (chargeSessionMap.isRemoteStop(request.getId())) {
@@ -185,7 +190,7 @@ public class ListenerImpl implements Listener {
         }
     }
 
-    private void localStartForCharging(StatusNotificationRequest request) {
+    private void localStartForCharging(StatusNotificationInfo request) {
         if (request.getStatus().equals(Charging) && !chargeSessionMap.isRemoteStart(request.getId()) &&
                 !reservationCache.reserved(request.getId())
         ) {
@@ -193,7 +198,7 @@ public class ListenerImpl implements Listener {
         }
     }
 
-    private void remoteStartForCharging(StatusNotificationRequest request) {
+    private void remoteStartForCharging(StatusNotificationInfo request) {
         if (
                 request.getStatus().equals(Charging) &&
                         chargeSessionMap.isRemoteStart(request.getId()) &&
@@ -204,7 +209,7 @@ public class ListenerImpl implements Listener {
         }
     }
 
-    private void tryRemoteStartAndStopPreparingTimer(StatusNotificationRequest request) {
+    private void tryRemoteStartAndStopPreparingTimer(StatusNotificationInfo request) {
         if (request.getStatus().equals(Preparing) && chargeSessionMap.isRemoteStart(request.getId()) &&
                 !reservationCache.reserved(request.getId())
         ) {

@@ -15,6 +15,7 @@ import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.core.CoreHandler;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.remoteTrigger.RemoteTriggerHandler;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 
 import java.util.HashMap;
@@ -36,6 +37,7 @@ public class AuthorizeImpl implements Authorize {
     private final ConnectorsInfoCache connectorsInfoCache;
     private final ChargeSessionMap chargeSessionMap;
     private final CoreHandler coreHandler;
+    private final RemoteTriggerHandler remoteTriggerHandler;
     private final Sender sender;
 
     public AuthorizeImpl(
@@ -43,12 +45,14 @@ public class AuthorizeImpl implements Authorize {
             ConnectorsInfoCache connectorsInfoCache,
             ChargeSessionMap chargeSessionMap,
             CoreHandler coreHandler,
+            RemoteTriggerHandler remoteTriggerHandler,
             Sender sender
     ) {
         this.bootNotification = bootNotification;
         this.connectorsInfoCache = connectorsInfoCache;
         this.chargeSessionMap = chargeSessionMap;
         this.coreHandler = coreHandler;
+        this.remoteTriggerHandler = remoteTriggerHandler;
         this.sender = sender;
     }
 
@@ -85,6 +89,7 @@ public class AuthorizeImpl implements Authorize {
                 log.info("Sent to central system: " + request.toString());
                 // Client returns a promise which will be filled once it receives a confirmation.
                 try {
+                    remoteTriggerHandler.waitForRemoteTriggerTaskComplete();
                     int finalConnectorId = connectorId;
                     client.send(request).whenComplete((confirmation, ex) -> {
                         log.info("Received from the central system: " + confirmation.toString());

@@ -8,11 +8,13 @@ import eu.chargetime.ocpp.feature.profile.ClientCoreProfile;
 import eu.chargetime.ocpp.model.Confirmation;
 import eu.chargetime.ocpp.model.Request;
 import eu.chargetime.ocpp.model.core.BootNotificationConfirmation;
+import eu.chargetime.ocpp.model.core.BootNotificationRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import pss.mira.orp.JavaOCAOCPP.models.requests.ocpp.BootNotificationRequest;
+import pss.mira.orp.JavaOCAOCPP.models.info.ocpp.BootNotificationInfo;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.core.CoreHandler;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.remoteTrigger.RemoteTriggerHandler;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.reservation.ReservationHandler;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.heartBeat.Heartbeat;
 import pss.mira.orp.JavaOCAOCPP.service.pc.TimeSetter;
@@ -25,18 +27,25 @@ import static eu.chargetime.ocpp.model.core.RegistrationStatus.Accepted;
 @Slf4j
 public class BootNotificationImpl implements BootNotification {
     private final CoreHandler coreHandler;
+    private final RemoteTriggerHandler remoteTriggerHandler;
     private final ReservationHandler reservationHandler;
     private final Heartbeat heartbeat;
     private final TimeSetter timeSetter;
-
+    private Request bootNotificationRequest = null;
     private JSONClient client;
     @Value("${vendor.name}")
     private String vendorName;
+    private Thread heartbeatThread = null;
 
     public BootNotificationImpl(
-            CoreHandler coreHandler, ReservationHandler reservationHandler, Heartbeat heartbeat, TimeSetter timeSetter
+            CoreHandler coreHandler,
+            RemoteTriggerHandler remoteTriggerHandler,
+            ReservationHandler reservationHandler,
+            Heartbeat heartbeat,
+            TimeSetter timeSetter
     ) {
         this.coreHandler = coreHandler;
+        this.remoteTriggerHandler = remoteTriggerHandler;
         this.reservationHandler = reservationHandler;
         this.heartbeat = heartbeat;
         this.timeSetter = timeSetter;
@@ -48,29 +57,30 @@ public class BootNotificationImpl implements BootNotification {
      * ["db","23c06964-1af0-4fbc-9240-c7f8e7318348",{"tables":[{"nameTable":"configuration","result":[{"reboot":false,"readonly":false,"type":"bool","value":"false","key":"AuthorizationCacheEnabled"},{"reboot":false,"readonly":false,"type":"int","value":"0","key":"BlinkRepeat"},{"reboot":false,"readonly":false,"type":"int","value":"0","key":"ClockAlignedDataInterval"},{"reboot":false,"readonly":false,"type":"int","value":"40","key":"ConnectionTimeOut"},{"reboot":false,"readonly":false,"type":"string","key":"ConnectorPhaseRotation"},{"reboot":false,"readonly":true,"type":"int","value":"0","key":"ConnectorPhaseRotationLength"},{"reboot":false,"readonly":true,"type":"int","value":"0","key":"GetConfigurationMaxKeys"},{"reboot":false,"readonly":false,"type":"int","key":"LightIntensity"},{"reboot":false,"readonly":false,"type":"bool","value":"true","key":"LocalAuthorizeOffline"},{"reboot":false,"readonly":false,"type":"bool","value":"true","key":"LocalPreAuthorize"},{"reboot":false,"readonly":false,"type":"int","value":"0","key":"MaxEnergyOnInvalidId"},{"reboot":false,"readonly":false,"type":"string","key":"MeterValuesAlignedData"},{"reboot":false,"readonly":true,"type":"int","value":"0","key":"MeterValuesAlignedDataMaxLength"},{"reboot":false,"readonly":false,"type":"string","value":"Current.Import,Current.Offered,Energy.Active.Import.Register,Power.Active.Import,SoC","key":"MeterValuesSampledData"},{"reboot":false,"readonly":true,"type":"int","value":"0","key":"MeterValuesSampledDataMaxLength"},{"reboot":false,"readonly":false,"type":"int","value":"20","key":"MeterValueSampleInterval"},{"reboot":false,"readonly":false,"type":"int","value":"0","key":"MinimumStatusDuration"},{"reboot":false,"readonly":true,"type":"int","value":"3","key":"NumberOfConnectors"},{"reboot":false,"readonly":false,"type":"int","value":"3","key":"ResetRetries"},{"reboot":false,"readonly":false,"type":"bool","value":"true","key":"StopTransactionOnEVSideDisconnect"},{"reboot":false,"readonly":false,"type":"bool","value":"true","key":"StopTransactionOnInvalidId"},{"reboot":false,"readonly":false,"type":"string","value":"PDU","key":"StopTxnAlignedData"},{"reboot":false,"readonly":false,"type":"int","value":"0","key":"StopTxnAlignedDataMaxLength"},{"reboot":false,"readonly":false,"type":"string","key":"StopTxnSampledData"},{"reboot":false,"readonly":true,"type":"int","value":"0","key":"StopTxnSampledDataMaxLength"},{"reboot":false,"readonly":true,"type":"string","value":"Core,Reservation,LocalAuthListManagement,SmartCharging,RemoteTrigger","key":"SupportedFeatureProfiles"},{"reboot":false,"readonly":true,"type":"int","value":"5","key":"SupportedFeatureProfilesMaxLength"},{"reboot":false,"readonly":false,"type":"int","value":"5","key":"TransactionMessageAttempts"},{"reboot":false,"readonly":false,"type":"int","value":"300","key":"TransactionMessageRetryInterval"},{"reboot":false,"readonly":false,"type":"bool","value":"true","key":"UnlockConnectorOnEVSideDisconnect"},{"reboot":false,"readonly":false,"type":"int","value":"30","key":"WebSocketPingInterval"},{"reboot":false,"readonly":false,"type":"bool","value":"true","key":"LocalAuthListEnabled"},{"reboot":false,"readonly":true,"type":"int","value":"1000","key":"LocalAuthListMaxLength"},{"reboot":false,"readonly":true,"type":"int","value":"0","key":"SendLocalListMaxLength"},{"reboot":false,"readonly":true,"type":"bool","value":"true","key":"ReserveConnectorZeroSupported"},{"reboot":false,"readonly":true,"type":"int","value":"2","key":"ChargeProfileMaxStackLevel"},{"reboot":false,"readonly":true,"type":"string","value":"Current","key":"ChargingScheduleAllowedChargingRateUnit"},{"reboot":false,"readonly":true,"type":"int","value":"3","key":"ChargingScheduleMaxPeriods"},{"reboot":false,"readonly":true,"type":"bool","value":"false","key":"ConnectorSwitch3to1PhaseSupport"},{"reboot":false,"readonly":true,"type":"int","value":"0","key":"MaxChargingProfilesInstalled"},{"reboot":false,"readonly":false,"type":"int","value":"300","key":"HeartbeatInterval"},{"reboot":false,"readonly":false,"type":"int","value":"300","key":"HeartbeatIntervalWebFace"},{"reboot":false,"readonly":false,"type":"bool","value":"true","key":"AllowOfflineTxForUnknownId"},{"reboot":false,"readonly":false,"type":"bool","value":"false","key":"AuthorizeRemoteTxRequests"}]}]}]
      */
     @Override
-    public void sendBootNotification(List<Object> parsedMessage) {
-        BootNotificationRequest bootNotificationRequest = new BootNotificationRequest(parsedMessage);
+    public void sendBootNotification(List<Object> parsedMessage, String source) {
+        BootNotificationInfo bootNotificationInfo = new BootNotificationInfo(parsedMessage);
 
-        if (bootNotificationRequest.getAddressCP() != null &&
-                bootNotificationRequest.getChargePointID() != null &&
-                bootNotificationRequest.getModel() != null) {
+        if (bootNotificationInfo.getAddressCP() != null &&
+                bootNotificationInfo.getChargePointID() != null &&
+                bootNotificationInfo.getModel() != null) {
             log.info("OCPP is ready to connect with the central system and send the boot notification");
 
-            if (bootNotificationRequest.getAddressCP().endsWith("/")) {
-                bootNotificationRequest.setAddressCP(
-                        bootNotificationRequest.getAddressCP().substring(
-                                0, bootNotificationRequest.getAddressCP().length() - 1
+            if (bootNotificationInfo.getAddressCP().endsWith("/")) {
+                bootNotificationInfo.setAddressCP(
+                        bootNotificationInfo.getAddressCP().substring(
+                                0, bootNotificationInfo.getAddressCP().length() - 1
                         )
                 );
             }
 
             ClientCoreProfile core = coreHandler.getCore();
-            JSONClient jsonClient = new JSONClient(core, bootNotificationRequest.getChargePointID());
+            JSONClient jsonClient = new JSONClient(core, bootNotificationInfo.getChargePointID());
             jsonClient.addFeatureProfile(reservationHandler.getReservation());
+            jsonClient.addFeatureProfile(remoteTriggerHandler.getRemoteTrigger());
 
             final boolean[] connectionOpened = {false};
             while (true) {
-                jsonClient.connect(bootNotificationRequest.getAddressCP(), new ClientEvents() {
+                jsonClient.connect(bootNotificationInfo.getAddressCP(), new ClientEvents() {
                     @Override
                     public void connectionOpened() {
                         log.info("Connection to the central system is established");
@@ -97,15 +107,14 @@ public class BootNotificationImpl implements BootNotification {
                 }
             }
             client = jsonClient;
-
             // Use the feature profile to help create event
-            Request request = core.createBootNotificationRequest(vendorName, bootNotificationRequest.getModel());
-            log.info("Sent to central system: " + request.toString());
+            BootNotificationRequest request = getBootNotificationRequest(core, bootNotificationInfo);
+            log.info("Sent to central system: " + request);
             // Client returns a promise which will be filled once it receives a confirmation.
             try {
                 client.send(request).whenComplete((confirmation, ex) -> {
                     log.info("Received from the central system: " + confirmation.toString());
-                    handleResponse(confirmation);
+                    handleResponse(confirmation, source);
                 });
             } catch (OccurenceConstraintException | UnsupportedFeatureException e) {
                 log.error("Аn error occurred while trying to send a boot notification");
@@ -116,25 +125,48 @@ public class BootNotificationImpl implements BootNotification {
         }
     }
 
-    private void handleResponse(Confirmation confirmation) {
+    // TODO: Установить версию сможем, если длинна строки будет не более 50 символов
+    private BootNotificationRequest getBootNotificationRequest(
+            ClientCoreProfile core, BootNotificationInfo bootNotificationInfo
+    ) {
+        BootNotificationRequest request =
+                core.createBootNotificationRequest(vendorName, bootNotificationInfo.getModel());
+        request.setChargePointSerialNumber(bootNotificationInfo.getChargePointID());
+//            request.setFirmwareVersion(bootNotificationInfo.getVersion());
+        request.setIccid(bootNotificationInfo.getChargePointID());
+        request.setImsi(bootNotificationInfo.getChargePointID());
+        bootNotificationRequest = request;
+        return request;
+    }
+
+    @Override
+    public void handleResponse(Confirmation confirmation, String source) {
         BootNotificationConfirmation bootNotificationConfirmation = (BootNotificationConfirmation) confirmation;
         // TODO Сделать другие варианты, кроме Accepted
         if (bootNotificationConfirmation.getStatus().equals(Accepted)) {
+            if (source.equals("remoteTrigger")) {
+                heartbeatThread.interrupt();
+            }
             timeSetter.setTime(bootNotificationConfirmation.getCurrentTime());
 
-            Thread heartBeatThread = getHeartbeatThread(bootNotificationConfirmation);
-            heartBeatThread.start();
+            Thread thread = getHeartbeatThread(bootNotificationConfirmation, source);
+            thread.start();
+            heartbeatThread = thread;
+
+            remoteTriggerHandler.setRemoteTriggerTaskFinished();
         }
     }
 
-    private Thread getHeartbeatThread(BootNotificationConfirmation bootNotificationConfirmation) {
+    private Thread getHeartbeatThread(BootNotificationConfirmation bootNotificationConfirmation, String source) {
         Runnable runHeartbeat = () -> {
             while (true) {
                 try {
                     Thread.sleep(bootNotificationConfirmation.getInterval() * 1000);
                 } catch (InterruptedException e) {
-                    log.error("Аn error while waiting for a ocpp heartbeat to be sent");
+                    log.error("Heartbeat thread has been interrupted");
+                    break;
                 }
+                log.info("!!!Поток из " + source);
                 heartbeat.sendHeartbeat(coreHandler.getCore(), getClient());
             }
         };
@@ -144,5 +176,10 @@ public class BootNotificationImpl implements BootNotification {
     @Override
     public JSONClient getClient() {
         return client;
+    }
+
+    @Override
+    public Request getBootNotificationRequest() {
+        return bootNotificationRequest;
     }
 }

@@ -5,8 +5,8 @@ import eu.chargetime.ocpp.feature.profile.ClientReservationProfile;
 import eu.chargetime.ocpp.model.reservation.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import pss.mira.orp.JavaOCAOCPP.models.requests.rabbit.DBTablesChangeRequest;
-import pss.mira.orp.JavaOCAOCPP.models.requests.rabbit.DBTablesDeleteRequest;
+import pss.mira.orp.JavaOCAOCPP.models.info.rabbit.DBTablesChangeInfo;
+import pss.mira.orp.JavaOCAOCPP.models.info.rabbit.DBTablesDeleteInfo;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 
@@ -69,7 +69,7 @@ public class ReservationHandlerImpl implements ReservationHandler {
                             bd.name(),
                             UUID.randomUUID().toString(),
                             Change.name(),
-                            new DBTablesChangeRequest(
+                            new DBTablesChangeInfo(
                                     reservation.name(),
                                     "reservation_id:" + request.getReservationId(),
                                     getReservationValues(request)),
@@ -165,7 +165,7 @@ public class ReservationHandlerImpl implements ReservationHandler {
                         bd.name(),
                         UUID.randomUUID().toString(),
                         Delete.name(),
-                        new DBTablesDeleteRequest(
+                        new DBTablesDeleteInfo(
                                 reservation.name(),
                                 "reservation_id",
                                 request.getReservationId().toString()),

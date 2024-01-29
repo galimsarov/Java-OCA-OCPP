@@ -2,10 +2,12 @@ package pss.mira.orp.JavaOCAOCPP.models.enums;
 
 public enum Actions {
     // bd
+    BootNotification,
     CancelReservation,
     Change,
     Delete,
     Get,
+    RemoteTriggerBootNotification,
     ReserveNow,
     // mainChargePointLogic
     RemoteStartTransaction,

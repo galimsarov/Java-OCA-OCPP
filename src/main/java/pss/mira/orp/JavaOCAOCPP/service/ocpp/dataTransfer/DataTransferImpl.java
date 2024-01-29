@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.core.CoreHandler;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.remoteTrigger.RemoteTriggerHandler;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 
 import java.util.HashMap;
@@ -22,11 +23,18 @@ import java.util.Map;
 public class DataTransferImpl implements DataTransfer {
     private final BootNotification bootNotification;
     private final CoreHandler coreHandler;
+    private final RemoteTriggerHandler remoteTriggerHandler;
     private final Sender sender;
 
-    public DataTransferImpl(BootNotification bootNotification, CoreHandler coreHandler, Sender sender) {
+    public DataTransferImpl(
+            BootNotification bootNotification,
+            CoreHandler coreHandler,
+            RemoteTriggerHandler remoteTriggerHandler,
+            Sender sender
+    ) {
         this.bootNotification = bootNotification;
         this.coreHandler = coreHandler;
+        this.remoteTriggerHandler = remoteTriggerHandler;
         this.sender = sender;
     }
 
@@ -74,6 +82,7 @@ public class DataTransferImpl implements DataTransfer {
 
                 // Client returns a promise which will be filled once it receives a confirmation.
                 try {
+                    remoteTriggerHandler.waitForRemoteTriggerTaskComplete();
                     client.send(request).whenComplete((confirmation, ex) -> {
                         log.info("Received from the central system: " + confirmation.toString());
                         handleResponse(consumer, requestUuid, confirmation);

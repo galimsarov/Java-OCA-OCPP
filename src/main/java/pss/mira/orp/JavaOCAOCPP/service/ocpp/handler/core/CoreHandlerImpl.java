@@ -6,8 +6,8 @@ import eu.chargetime.ocpp.model.core.*;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.SystemUtils;
 import org.springframework.stereotype.Service;
-import pss.mira.orp.JavaOCAOCPP.models.requests.rabbit.DBTablesChangeRequest;
-import pss.mira.orp.JavaOCAOCPP.models.requests.rabbit.DBTablesDeleteRequest;
+import pss.mira.orp.JavaOCAOCPP.models.info.rabbit.DBTablesChangeInfo;
+import pss.mira.orp.JavaOCAOCPP.models.info.rabbit.DBTablesDeleteInfo;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
 import pss.mira.orp.JavaOCAOCPP.service.cache.reservation.ReservationCache;
@@ -143,7 +143,7 @@ public class CoreHandlerImpl implements CoreHandler {
                         bd.name(),
                         UUID.randomUUID().toString(),
                         Change.name(),
-                        new DBTablesChangeRequest(
+                        new DBTablesChangeInfo(
                                 configuration.name(),
                                 "key:" + request.getKey(),
                                 List.of(Map.of("key", "value", "value", request.getValue()))),
@@ -233,7 +233,7 @@ public class CoreHandlerImpl implements CoreHandler {
                             bd.name(),
                             UUID.randomUUID().toString(),
                             Delete.name(),
-                            new DBTablesDeleteRequest(
+                            new DBTablesDeleteInfo(
                                     reservation.name(),
                                     "reservation_id",
                                     reservationId),
