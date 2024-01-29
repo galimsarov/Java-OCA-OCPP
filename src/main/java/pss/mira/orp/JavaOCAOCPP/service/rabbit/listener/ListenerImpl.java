@@ -150,23 +150,25 @@ public class ListenerImpl implements Listener {
     @Override
     // prod, test -> connectorsInfoOcpp
     // dev -> myQueue1
-    @RabbitListener(queues = "connectorsInfoOcpp")
+    @RabbitListener(queues = "myQueue1")
     public void processConnectorsInfo(String message) {
         log.info("Received from connectorsInfoOcpp queue: " + message);
-        try {
-            List<Map<String, Object>> parsedMessage = objectMapper.readValue(message, List.class);
-            List<StatusNotificationInfo> possibleRequests = connectorsInfoCache.addToCache(parsedMessage);
-            for (StatusNotificationInfo request : possibleRequests) {
-                statusNotification.sendStatusNotification(request);
-                tryRemoteStartAndStopPreparingTimer(request);
-                remoteStartForCharging(request);
-                localStartForCharging(request);
-                removeFromChargingAndStopRemote(request);
+        if (!connectorsInfoCache.isEmpty()) {
+            try {
+                List<Map<String, Object>> parsedMessage = objectMapper.readValue(message, List.class);
+                List<StatusNotificationInfo> possibleRequests = connectorsInfoCache.addToCache(parsedMessage);
+                for (StatusNotificationInfo request : possibleRequests) {
+                    statusNotification.sendStatusNotification(request);
+                    tryRemoteStartAndStopPreparingTimer(request);
+                    remoteStartForCharging(request);
+                    localStartForCharging(request);
+                    removeFromChargingAndStopRemote(request);
+                }
+            } catch (Exception e) {
+                log.error("Error when parsing a message from the broker");
             }
-        } catch (Exception e) {
-            log.error("Error when parsing a message from the broker");
+            chargeSessionMap.deleteNotStartedRemoteTransactions();
         }
-        chargeSessionMap.deleteNotStartedRemoteTransactions();
     }
 
     @Override
@@ -183,10 +185,10 @@ public class ListenerImpl implements Listener {
 
     private void removeFromChargingAndStopRemote(StatusNotificationInfo request) {
         if (request.getStatus().equals(Finishing) && !reservationCache.reserved(request.getId())) {
-            meterValues.removeFromChargingConnectors(request.getId());
             if (chargeSessionMap.isRemoteStop(request.getId())) {
                 stopTransaction.sendRemoteStop(request.getId());
             }
+            meterValues.removeFromChargingConnectors(request.getId());
         }
     }
 
@@ -210,7 +212,8 @@ public class ListenerImpl implements Listener {
     }
 
     private void tryRemoteStartAndStopPreparingTimer(StatusNotificationInfo request) {
-        if (request.getStatus().equals(Preparing) && chargeSessionMap.isRemoteStart(request.getId()) &&
+        if (request.getStatus().equals(Preparing) && chargeSessionMap.isNotEmpty() &&
+                chargeSessionMap.isRemoteStart(request.getId()) &&
                 !reservationCache.reserved(request.getId())
         ) {
             chargeSessionMap.stopPreparingTimer(request.getId());

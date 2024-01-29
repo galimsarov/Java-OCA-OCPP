@@ -8,6 +8,8 @@ public enum Queues {
     // prod, test -> mainChargePointLogic
     // dev -> cp
     mainChargePointLogic,
+    // prod, test -> ModBus
+    // dev -> ModBusFake
     ModBus,
     ocpp,
     ocppCache

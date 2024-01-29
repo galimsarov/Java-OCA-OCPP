@@ -49,11 +49,13 @@ public class ConnectorsInfoCacheImpl implements ConnectorsInfoCache {
                 String newStatus = fixStatus(map.get("status").toString(), id);
 
                 Map<String, Object> mapFromCache = connectorsMap.get(id);
-                String oldError = mapFromCache.get("error").toString();
-                String oldStatus = fixStatus(mapFromCache.get("status").toString(), id);
+                if (mapFromCache != null) {
+                    String oldError = mapFromCache.get("error").toString();
+                    String oldStatus = fixStatus(mapFromCache.get("status").toString(), id);
 
-                if (!newError.equals(oldError) || !newStatus.equals(oldStatus)) {
-                    addToResult(newError, newStatus, result, id);
+                    if (!newError.equals(oldError) || !newStatus.equals(oldStatus)) {
+                        addToResult(newError, newStatus, result, id);
+                    }
                 }
             }
             connectorsMap.clear();
