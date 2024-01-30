@@ -140,17 +140,10 @@ public class ListenerImpl implements Listener {
         }
     }
 
-    private void sendBootNotification(List<Object> parsedMessage) {
-        Thread sendBootNotificationThread = new Thread(
-                () -> bootNotification.sendBootNotification(parsedMessage, "bootNotification")
-        );
-        sendBootNotificationThread.start();
-    }
-
     @Override
     // prod, test -> connectorsInfoOcpp
     // dev -> myQueue1
-    @RabbitListener(queues = "myQueue1")
+    @RabbitListener(queues = "connectorsInfoOcpp")
     public void processConnectorsInfo(String message) {
         log.info("Received from connectorsInfoOcpp queue: " + message);
         if (!connectorsInfoCache.isEmpty()) {
@@ -202,7 +195,7 @@ public class ListenerImpl implements Listener {
 
     private void remoteStartForCharging(StatusNotificationInfo request) {
         if (
-                request.getStatus().equals(Charging) &&
+                request.getStatus().equals(Charging) && chargeSessionMap.isNotEmpty() &&
                         chargeSessionMap.isRemoteStart(request.getId()) &&
                         (chargeSessionMap.getChargeSessionInfo(request.getId()).getPreparingTimer() == null) &&
                         !reservationCache.reserved(request.getId())

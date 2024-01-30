@@ -4,7 +4,6 @@ import eu.chargetime.ocpp.JSONClient;
 import eu.chargetime.ocpp.OccurenceConstraintException;
 import eu.chargetime.ocpp.UnsupportedFeatureException;
 import eu.chargetime.ocpp.feature.profile.ClientCoreProfile;
-import eu.chargetime.ocpp.model.Confirmation;
 import eu.chargetime.ocpp.model.core.Reason;
 import eu.chargetime.ocpp.model.core.StopTransactionRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -81,34 +80,36 @@ public class StopTransactionImpl implements StopTransaction {
                         break;
                     }
                 }
-                ClientCoreProfile core = coreHandler.getCore();
-                JSONClient client = bootNotification.getClient();
-                // Use the feature profile to help create event
-                StopTransactionRequest request = core.createStopTransactionRequest(
-                        connectorsInfoCache.getFullStationConsumedEnergy(connectorId), ZonedDateTime.now(),
-                        chargeSessionMap.getChargeSessionInfo(connectorId).getTransactionId()
-                );
-                request.setReason(getReasonFromEnum(reason));
-
-                if (client == null) {
-                    sender.sendRequestToQueue(
-                            ocppCache.name(),
-                            UUID.randomUUID().toString(),
-                            SaveToCache.name(),
-                            request,
-                            "stopTransaction"
+                if (chargeSessionMap.getChargeSessionInfo(connectorId) != null) {
+                    ClientCoreProfile core = coreHandler.getCore();
+                    JSONClient client = bootNotification.getClient();
+                    // Use the feature profile to help create event
+                    StopTransactionRequest request = core.createStopTransactionRequest(
+                            connectorsInfoCache.getFullStationConsumedEnergy(connectorId), ZonedDateTime.now(),
+                            chargeSessionMap.getChargeSessionInfo(connectorId).getTransactionId()
                     );
-                } else {
-                    // Client returns a promise which will be filled once it receives a confirmation.
-                    try {
-                        remoteTriggerHandler.waitForRemoteTriggerTaskComplete();
-                        log.info("Sent to central system: " + request);
-                        client.send(request).whenComplete((confirmation, ex) -> {
-                            log.info("Received from the central system: " + confirmation);
-                            handleResponse(consumer, requestUuid, confirmation, connectorId, reason);
-                        });
-                    } catch (OccurenceConstraintException | UnsupportedFeatureException ignored) {
-                        log.warn("An error occurred while sending or processing stop transaction request");
+                    request.setReason(getReasonFromEnum(reason));
+
+                    if (client == null) {
+                        sender.sendRequestToQueue(
+                                ocppCache.name(),
+                                UUID.randomUUID().toString(),
+                                SaveToCache.name(),
+                                request,
+                                "stopTransaction"
+                        );
+                    } else {
+                        // Client returns a promise which will be filled once it receives a confirmation.
+                        try {
+                            remoteTriggerHandler.waitForRemoteTriggerTaskComplete();
+                            log.info("Sent to central system: " + request);
+                            client.send(request).whenComplete((confirmation, ex) -> {
+                                log.info("Received from the central system: " + confirmation);
+                                handleResponse(consumer, requestUuid, connectorId, reason);
+                            });
+                        } catch (OccurenceConstraintException | UnsupportedFeatureException ignored) {
+                            log.warn("An error occurred while sending or processing stop transaction request");
+                        }
                     }
                 }
             } catch (Exception ignored) {
@@ -117,6 +118,7 @@ public class StopTransactionImpl implements StopTransaction {
         };
         Thread finishingThread = new Thread(finishingTask);
         finishingThread.start();
+
     }
 
     private Reason getReasonFromEnum(String reason) {
@@ -154,7 +156,7 @@ public class StopTransactionImpl implements StopTransaction {
                 log.info("Sent to central system: " + request);
                 client.send(request).whenComplete((confirmation, ex) -> {
                     log.info("Received from the central system: " + confirmation);
-                    handleResponse("", "", confirmation, connectorId, Remote.name());
+                    handleResponse("", "", connectorId, Remote.name());
                 });
             } catch (OccurenceConstraintException | UnsupportedFeatureException ignored) {
                 log.warn("An error occurred while sending or processing stop transaction request");
@@ -172,7 +174,7 @@ public class StopTransactionImpl implements StopTransaction {
                     .filter(transactionParam -> transactionParam.get("key").equals("connector_id")).
                     findFirst().map(transactionParam -> Integer.parseInt(transactionParam.get("value")))
                     .orElse(0);
-            if (connectorId != 0) {
+            if ((connectorId != 0) && (chargeSessionMap.getChargeSessionInfo(connectorId) != null)) {
                 ClientCoreProfile core = coreHandler.getCore();
                 JSONClient client = bootNotification.getClient();
                 // Use the feature profile to help create event
@@ -220,7 +222,7 @@ public class StopTransactionImpl implements StopTransaction {
      * Steve возвращал null, поэтому idTagInfo собирать не из чего. При необходимости можно предусмотреть
      */
     private void handleResponse(
-            String consumer, String requestUuid, Confirmation confirmation, int connectorId, String reason
+            String consumer, String requestUuid, int connectorId, String reason
     ) {
         String consumedPower = String.valueOf(connectorsInfoCache.getFullStationConsumedEnergy(connectorId) -
                 chargeSessionMap.getStartFullStationConsumedEnergy(connectorId));
@@ -249,7 +251,7 @@ public class StopTransactionImpl implements StopTransaction {
                 transaction1.name()
         );
         if (!consumer.isBlank()) {
-            sender.sendRequestToQueue(consumer, requestUuid, "", confirmation, "");
+            sender.sendRequestToQueue(consumer, requestUuid, "", Map.of("status", "Accepted"), "");
         }
     }
 }

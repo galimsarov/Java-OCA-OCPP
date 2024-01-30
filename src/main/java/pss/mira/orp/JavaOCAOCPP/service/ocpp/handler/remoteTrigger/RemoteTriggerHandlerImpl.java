@@ -2,17 +2,13 @@ package pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.remoteTrigger;
 
 import eu.chargetime.ocpp.feature.profile.ClientRemoteTriggerEventHandler;
 import eu.chargetime.ocpp.feature.profile.ClientRemoteTriggerProfile;
-import eu.chargetime.ocpp.model.Request;
 import eu.chargetime.ocpp.model.remotetrigger.TriggerMessageConfirmation;
 import eu.chargetime.ocpp.model.remotetrigger.TriggerMessageRequest;
-import eu.chargetime.ocpp.model.remotetrigger.TriggerMessageRequestType;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 import static eu.chargetime.ocpp.model.remotetrigger.TriggerMessageStatus.Accepted;
@@ -26,7 +22,6 @@ import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.getDBTablesGetRequest
 @Service
 @Slf4j
 public class RemoteTriggerHandlerImpl implements RemoteTriggerHandler {
-    private final Map<TriggerMessageRequestType, Request> cache = new HashMap<>();
     private final Sender sender;
     private boolean remoteTriggerTaskExecuting = false;
 
