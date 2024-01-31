@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import pss.mira.orp.JavaOCAOCPP.models.info.rabbit.DBTablesChangeInfo;
 import pss.mira.orp.JavaOCAOCPP.models.info.rabbit.DBTablesCreateInfo;
+import pss.mira.orp.JavaOCAOCPP.models.queues.Queues;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
@@ -27,20 +28,19 @@ import java.util.UUID;
 import static eu.chargetime.ocpp.model.core.Reason.*;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.*;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.transaction1;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Queues.*;
 import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.formatStartStopTransactionDateTime;
 import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.formatStartStopTransactionDateTimeUTC;
 
 @Service
 @Slf4j
 public class StopTransactionImpl implements StopTransaction {
-    private final RemoteTriggerHandler remoteTriggerHandler;
-    private final MeterValues meterValues;
     private final BootNotification bootNotification;
     private final ChargeSessionMap chargeSessionMap;
     private final ConnectorsInfoCache connectorsInfoCache;
     private final CoreHandler coreHandler;
-    private String startTransactionStatus = null;
+    private final MeterValues meterValues;
+    private final Queues queues;
+    private final RemoteTriggerHandler remoteTriggerHandler;
     private final Sender sender;
 
     public StopTransactionImpl(
@@ -49,6 +49,7 @@ public class StopTransactionImpl implements StopTransaction {
             ConnectorsInfoCache connectorsInfoCache,
             CoreHandler coreHandler,
             MeterValues meterValues,
+            Queues queues,
             RemoteTriggerHandler remoteTriggerHandler,
             Sender sender
     ) {
@@ -57,6 +58,7 @@ public class StopTransactionImpl implements StopTransaction {
         this.connectorsInfoCache = connectorsInfoCache;
         this.coreHandler = coreHandler;
         this.meterValues = meterValues;
+        this.queues = queues;
         this.remoteTriggerHandler = remoteTriggerHandler;
         this.sender = sender;
     }
@@ -92,7 +94,7 @@ public class StopTransactionImpl implements StopTransaction {
 
                     if (client == null) {
                         sender.sendRequestToQueue(
-                                ocppCache.name(),
+                                queues.getOCPPCache(),
                                 UUID.randomUUID().toString(),
                                 SaveToCache.name(),
                                 request,
@@ -143,7 +145,7 @@ public class StopTransactionImpl implements StopTransaction {
 
         if (client == null) {
             sender.sendRequestToQueue(
-                    ocppCache.name(),
+                    queues.getOCPPCache(),
                     UUID.randomUUID().toString(),
                     SaveToCache.name(),
                     request,
@@ -186,7 +188,7 @@ public class StopTransactionImpl implements StopTransaction {
 
                 if (client == null) {
                     sender.sendRequestToQueue(
-                            ocppCache.name(),
+                            queues.getOCPPCache(),
                             UUID.randomUUID().toString(),
                             SaveToCache.name(),
                             request,
@@ -200,7 +202,7 @@ public class StopTransactionImpl implements StopTransaction {
                         client.send(request).whenComplete((confirmation, ex) -> {
                             log.info("Received from the central system: " + confirmation);
                             sender.sendRequestToQueue(
-                                    mainChargePointLogic.name(),
+                                    queues.getChargePointLogic(),
                                     UUID.randomUUID().toString(),
                                     StopChargeSession.name(),
                                     Map.of("connectorId", connectorId),
@@ -215,7 +217,7 @@ public class StopTransactionImpl implements StopTransaction {
                 meterValues.removeFromChargingConnectors(connectorId);
             }
         }
-        startTransactionStatus = null;
+        String startTransactionStatus = null;
     }
 
     /**
@@ -227,7 +229,7 @@ public class StopTransactionImpl implements StopTransaction {
         String consumedPower = String.valueOf(connectorsInfoCache.getFullStationConsumedEnergy(connectorId) -
                 chargeSessionMap.getStartFullStationConsumedEnergy(connectorId));
         sender.sendRequestToQueue(
-                bd.name(),
+                queues.getDateBase(),
                 UUID.randomUUID().toString(),
                 Change.name(),
                 new DBTablesChangeInfo(

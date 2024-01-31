@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 import pss.mira.orp.JavaOCAOCPP.models.enums.Actions;
+import pss.mira.orp.JavaOCAOCPP.models.queues.Queues;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 
@@ -12,18 +13,18 @@ import java.util.UUID;
 
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.*;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.*;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Queues.ModBus;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Queues.bd;
 import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.getDBTablesGetRequest;
 
 @Component
 @Slf4j
 public class OcppLoader implements CommandLineRunner {
     private final BootNotification bootNotification;
+    private final Queues queues;
     private final Sender sender;
 
-    public OcppLoader(BootNotification bootNotification, Sender sender) {
+    public OcppLoader(BootNotification bootNotification, Queues queues, Sender sender) {
         this.bootNotification = bootNotification;
+        this.queues = queues;
         this.sender = sender;
     }
 
@@ -35,7 +36,7 @@ public class OcppLoader implements CommandLineRunner {
         heartbeatRabbitThread.start();
 
         sender.sendRequestToQueue(
-                bd.name(),
+                queues.getDateBase(),
                 UUID.randomUUID().toString(),
                 Get.name(),
                 getDBTablesGetRequest(List.of(config_zs.name())),
@@ -46,7 +47,7 @@ public class OcppLoader implements CommandLineRunner {
         connectorsInfoThread.start();
 
         sender.sendRequestToQueue(
-                bd.name(),
+                queues.getDateBase(),
                 UUID.randomUUID().toString(),
                 Get.name(),
                 getDBTablesGetRequest(List.of(reservation.name())),
@@ -54,7 +55,7 @@ public class OcppLoader implements CommandLineRunner {
         );
 
         sender.sendRequestToQueue(
-                bd.name(),
+                queues.getDateBase(),
                 UUID.randomUUID().toString(),
                 Get.name(),
                 getDBTablesGetRequest(List.of(configuration.name())),
@@ -76,7 +77,7 @@ public class OcppLoader implements CommandLineRunner {
                 }
             }
             sender.sendRequestToQueue(
-                    ModBus.name(),
+                    queues.getModBus(),
                     UUID.randomUUID().toString(),
                     GetConnectorsInfo.name(),
                     new Object(),

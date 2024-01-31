@@ -85,24 +85,25 @@ public class ConfigurationCacheImpl implements ConfigurationCache {
 
     @Override
     public boolean reservationSupported() {
-        for (Map<String, Object> map : configurationList) {
-            String key = map.get("key").toString();
-            if (key.equals("SupportedFeatureProfiles")) {
-                String value = map.get("value").toString();
-                String[] profiles = value.split(",");
-                for (String profile : profiles) {
-                    if (profile.equals("Reservation")) {
-                        return true;
-                    }
+        try {
+            String value = configurationMap.get("SupportedFeatureProfiles").get("value").toString();
+            String[] profiles = value.split(",");
+            for (String profile : profiles) {
+                if (profile.equals("Reservation")) {
+                    return true;
                 }
-                return false;
             }
+            return false;
+        } catch (Exception ignored) {
+            return false;
         }
-        return false;
     }
 
     @Override
-    public void addToCache(List<Map<String, Object>> parsedMessage) {
-
+    public void addToCache(List<Map<String, Object>> configurations) {
+        for (Map<String, Object> map : configurations) {
+            String key = map.get("key").toString();
+            configurationMap.put(key, map);
+        }
     }
 }

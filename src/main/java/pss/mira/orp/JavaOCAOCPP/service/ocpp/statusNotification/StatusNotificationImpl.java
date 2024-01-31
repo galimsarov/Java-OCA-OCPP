@@ -8,6 +8,7 @@ import eu.chargetime.ocpp.model.Request;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import pss.mira.orp.JavaOCAOCPP.models.info.ocpp.StatusNotificationInfo;
+import pss.mira.orp.JavaOCAOCPP.models.queues.Queues;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.core.CoreHandler;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
@@ -15,18 +16,21 @@ import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 import java.util.UUID;
 
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.SaveToCache;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Queues.ocppCache;
 
 @Service
 @Slf4j
 public class StatusNotificationImpl implements StatusNotification {
     private final BootNotification bootNotification;
     private final CoreHandler coreHandler;
+    private final Queues queues;
     private final Sender sender;
 
-    public StatusNotificationImpl(BootNotification bootNotification, CoreHandler coreHandler, Sender sender) {
+    public StatusNotificationImpl(
+            BootNotification bootNotification, CoreHandler coreHandler, Queues queues, Sender sender
+    ) {
         this.bootNotification = bootNotification;
         this.coreHandler = coreHandler;
+        this.queues = queues;
         this.sender = sender;
     }
 
@@ -42,7 +46,7 @@ public class StatusNotificationImpl implements StatusNotification {
         );
         if (client == null) {
             sender.sendRequestToQueue(
-                    ocppCache.name(),
+                    queues.getOCPPCache(),
                     UUID.randomUUID().toString(),
                     SaveToCache.name(),
                     request,

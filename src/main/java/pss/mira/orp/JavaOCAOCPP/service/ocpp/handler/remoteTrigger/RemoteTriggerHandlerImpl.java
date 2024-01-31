@@ -6,6 +6,7 @@ import eu.chargetime.ocpp.model.remotetrigger.TriggerMessageConfirmation;
 import eu.chargetime.ocpp.model.remotetrigger.TriggerMessageRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import pss.mira.orp.JavaOCAOCPP.models.queues.Queues;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 
 import java.util.List;
@@ -16,16 +17,17 @@ import static eu.chargetime.ocpp.model.remotetrigger.TriggerMessageStatus.NotImp
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.Get;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.RemoteTriggerBootNotification;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.config_zs;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Queues.bd;
 import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.getDBTablesGetRequest;
 
 @Service
 @Slf4j
 public class RemoteTriggerHandlerImpl implements RemoteTriggerHandler {
+    private final Queues queues;
     private final Sender sender;
     private boolean remoteTriggerTaskExecuting = false;
 
-    public RemoteTriggerHandlerImpl(Sender sender) {
+    public RemoteTriggerHandlerImpl(Queues queues, Sender sender) {
+        this.queues = queues;
         this.sender = sender;
     }
 
@@ -64,7 +66,7 @@ public class RemoteTriggerHandlerImpl implements RemoteTriggerHandler {
                         log.error("Аn error while sending trigger message confirmation");
                     }
                     sender.sendRequestToQueue(
-                            bd.name(),
+                            queues.getDateBase(),
                             UUID.randomUUID().toString(),
                             Get.name(),
                             getDBTablesGetRequest(List.of(config_zs.name())),

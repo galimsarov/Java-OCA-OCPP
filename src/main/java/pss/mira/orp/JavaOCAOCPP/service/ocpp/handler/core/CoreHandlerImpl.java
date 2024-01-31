@@ -8,6 +8,7 @@ import org.apache.commons.lang3.SystemUtils;
 import org.springframework.stereotype.Service;
 import pss.mira.orp.JavaOCAOCPP.models.info.rabbit.DBTablesChangeInfo;
 import pss.mira.orp.JavaOCAOCPP.models.info.rabbit.DBTablesDeleteInfo;
+import pss.mira.orp.JavaOCAOCPP.models.queues.Queues;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
 import pss.mira.orp.JavaOCAOCPP.service.cache.configuration.ConfigurationCache;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
@@ -27,7 +28,6 @@ import static eu.chargetime.ocpp.model.core.RemoteStartStopStatus.Rejected;
 import static eu.chargetime.ocpp.model.core.ResetType.Soft;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.*;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.*;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Queues.*;
 
 @Service
 @Slf4j
@@ -35,6 +35,7 @@ public class CoreHandlerImpl implements CoreHandler {
     private final ConfigurationCache configurationCache;
     private final ConnectorsInfoCache connectorsInfoCache;
     private final ChargeSessionMap chargeSessionMap;
+    private final Queues queues;
     private final ReservationCache reservationCache;
     private final Sender sender;
     private AvailabilityStatus availabilityStatus = null;
@@ -50,12 +51,14 @@ public class CoreHandlerImpl implements CoreHandler {
             ConfigurationCache configurationCache,
             ConnectorsInfoCache connectorsInfoCache,
             ChargeSessionMap chargeSessionMap,
+            Queues queues,
             ReservationCache reservationCache,
             Sender sender
     ) {
         this.configurationCache = configurationCache;
         this.connectorsInfoCache = connectorsInfoCache;
         this.chargeSessionMap = chargeSessionMap;
+        this.queues = queues;
         this.reservationCache = reservationCache;
         this.sender = sender;
     }
@@ -73,7 +76,7 @@ public class CoreHandlerImpl implements CoreHandler {
             public ChangeAvailabilityConfirmation handleChangeAvailabilityRequest(ChangeAvailabilityRequest request) {
                 log.info("Received from the central system: " + request.toString());
                 sender.sendRequestToQueue(
-                        ModBus.name(),
+                        queues.getModBus(),
                         UUID.randomUUID().toString(),
                         ChangeAvailability.name(),
                         request,
@@ -145,7 +148,7 @@ public class CoreHandlerImpl implements CoreHandler {
             ) {
                 log.info("Received from the central system: " + request.toString());
                 sender.sendRequestToQueue(
-                        bd.name(),
+                        queues.getDateBase(),
                         UUID.randomUUID().toString(),
                         Change.name(),
                         new DBTablesChangeInfo(
@@ -255,7 +258,7 @@ public class CoreHandlerImpl implements CoreHandler {
                 Integer reservationId = reservationCache.getReservationId(request.getConnectorId(), request.getIdTag());
                 if (reservationId != null) {
                     sender.sendRequestToQueue(
-                            bd.name(),
+                            queues.getDateBase(),
                             UUID.randomUUID().toString(),
                             Delete.name(),
                             new DBTablesDeleteInfo(
@@ -287,7 +290,7 @@ public class CoreHandlerImpl implements CoreHandler {
                 Map<String, Integer> map = new HashMap<>();
                 map.put("connectorId", request.getConnectorId());
                 sender.sendRequestToQueue(
-                        mainChargePointLogic.name(),
+                        queues.getChargePointLogic(),
                         UUID.randomUUID().toString(),
                         RemoteStartTransaction.name(),
                         map,
@@ -310,7 +313,7 @@ public class CoreHandlerImpl implements CoreHandler {
                 // AuthorizeRemoteTxRequests в таблице configuration -> true
                 log.info("IdTag is sent for authorization to the central system");
                 sender.sendRequestToQueue(
-                        ocpp.name(),
+                        queues.getOCPP(),
                         UUID.randomUUID().toString(),
                         Authorize.name(),
                         Map.of("idTag", request.getIdTag()),
@@ -352,7 +355,7 @@ public class CoreHandlerImpl implements CoreHandler {
             ) {
                 log.info("Received from the central system: " + request.toString());
                 sender.sendRequestToQueue(
-                        mainChargePointLogic.name(),
+                        queues.getChargePointLogic(),
                         UUID.randomUUID().toString(),
                         RemoteStopTransaction.name(),
                         request,
@@ -382,7 +385,7 @@ public class CoreHandlerImpl implements CoreHandler {
             public ResetConfirmation handleResetRequest(ResetRequest request) {
                 log.info("Received from the central system: " + request.toString());
                 sender.sendRequestToQueue(
-                        mainChargePointLogic.name(),
+                        queues.getChargePointLogic(),
                         UUID.randomUUID().toString(),
                         Reset.name(),
                         request,
@@ -447,7 +450,7 @@ public class CoreHandlerImpl implements CoreHandler {
             public UnlockConnectorConfirmation handleUnlockConnectorRequest(UnlockConnectorRequest request) {
                 log.info("Received from the central system: " + request.toString());
                 sender.sendRequestToQueue(
-                        mainChargePointLogic.name(),
+                        queues.getChargePointLogic(),
                         UUID.randomUUID().toString(),
                         UnlockConnector.name(),
                         request,

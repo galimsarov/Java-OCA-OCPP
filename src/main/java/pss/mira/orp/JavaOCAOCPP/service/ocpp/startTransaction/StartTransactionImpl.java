@@ -11,6 +11,7 @@ import eu.chargetime.ocpp.model.core.StartTransactionRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import pss.mira.orp.JavaOCAOCPP.models.info.rabbit.DBTablesCreateInfo;
+import pss.mira.orp.JavaOCAOCPP.models.queues.Queues;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.chargeSessionInfo.ChargeSessionInfo;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
@@ -26,7 +27,6 @@ import java.util.*;
 import static eu.chargetime.ocpp.model.core.AuthorizationStatus.Accepted;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.*;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.transaction1;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Queues.*;
 import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.*;
 
 @Service
@@ -37,6 +37,7 @@ public class StartTransactionImpl implements StartTransaction {
     private final ConnectorsInfoCache connectorsInfoCache;
     private final CoreHandler coreHandler;
     private final MeterValues meterValues;
+    private final Queues queues;
     private final RemoteTriggerHandler remoteTriggerHandler;
     private final Sender sender;
 
@@ -46,6 +47,7 @@ public class StartTransactionImpl implements StartTransaction {
             ConnectorsInfoCache connectorsInfoCache,
             CoreHandler coreHandler,
             MeterValues meterValues,
+            Queues queues,
             RemoteTriggerHandler remoteTriggerHandler,
             Sender sender
     ) {
@@ -54,6 +56,7 @@ public class StartTransactionImpl implements StartTransaction {
         this.connectorsInfoCache = connectorsInfoCache;
         this.coreHandler = coreHandler;
         this.meterValues = meterValues;
+        this.queues = queues;
         this.remoteTriggerHandler = remoteTriggerHandler;
         this.sender = sender;
     }
@@ -81,7 +84,7 @@ public class StartTransactionImpl implements StartTransaction {
             if (client == null) {
                 request.setTimestamp(null);
                 sender.sendRequestToQueue(
-                        ocppCache.name(),
+                        queues.getOCPPCache(),
                         UUID.randomUUID().toString(),
                         SaveToCache.name(),
                         request,
@@ -137,7 +140,7 @@ public class StartTransactionImpl implements StartTransaction {
         if (startTransactionConfirmation.getIdTagInfo().getStatus().equals(Accepted) &&
                 startTransactionConfirmation.getTransactionId() != 0) {
             sender.sendRequestToQueue(
-                    bd.name(),
+                    queues.getDateBase(),
                     UUID.randomUUID().toString(),
                     Change.name(),
                     new DBTablesCreateInfo(
@@ -162,7 +165,7 @@ public class StartTransactionImpl implements StartTransaction {
             );
         } else {
             sender.sendRequestToQueue(
-                    mainChargePointLogic.name(),
+                    queues.getChargePointLogic(),
                     UUID.randomUUID().toString(),
                     StopChargeSession.name(),
                     Map.of("connectorId", connectorId),

@@ -8,6 +8,7 @@ import eu.chargetime.ocpp.model.core.MeterValuesRequest;
 import eu.chargetime.ocpp.model.core.SampledValue;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import pss.mira.orp.JavaOCAOCPP.models.queues.Queues;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
 import pss.mira.orp.JavaOCAOCPP.service.cache.configuration.ConfigurationCache;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
@@ -20,7 +21,6 @@ import java.util.*;
 
 import static eu.chargetime.ocpp.model.core.ValueFormat.Raw;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.SaveToCache;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Queues.ocppCache;
 
 @Service
 @Slf4j
@@ -30,6 +30,7 @@ public class MeterValuesImpl implements MeterValues {
     private final ChargeSessionMap chargeSessionMap;
     private final ConnectorsInfoCache connectorsInfoCache;
     private final CoreHandler coreHandler;
+    private final Queues queues;
     private final Sender sender;
     private final Set<Integer> chargingConnectors = new HashSet<>();
 //    private List<Map<String, Object>> configurationList = null;
@@ -40,6 +41,7 @@ public class MeterValuesImpl implements MeterValues {
             ChargeSessionMap chargeSessionMap,
             ConnectorsInfoCache connectorsInfoCache,
             CoreHandler coreHandler,
+            Queues queues,
             Sender sender
     ) {
         this.bootNotification = bootNotification;
@@ -47,6 +49,7 @@ public class MeterValuesImpl implements MeterValues {
         this.chargeSessionMap = chargeSessionMap;
         this.connectorsInfoCache = connectorsInfoCache;
         this.coreHandler = coreHandler;
+        this.queues = queues;
         this.sender = sender;
     }
 
@@ -149,7 +152,7 @@ public class MeterValuesImpl implements MeterValues {
         request.setTransactionId(transactionId);
         if (client == null) {
             sender.sendRequestToQueue(
-                    ocppCache.name(),
+                    queues.getOCPPCache(),
                     UUID.randomUUID().toString(),
                     SaveToCache.name(),
                     request,

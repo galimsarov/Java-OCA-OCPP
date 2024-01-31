@@ -4,26 +4,30 @@ import com.google.gson.Gson;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.PropertySource;
 import org.springframework.stereotype.Service;
+import pss.mira.orp.JavaOCAOCPP.models.queues.Queues;
 import pss.mira.orp.JavaOCAOCPP.service.cache.request.RequestCache;
 
 import java.util.Date;
 import java.util.List;
 
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Queues.ocpp;
 import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.formatHeartbeatDateTime;
 
+@PropertySource({"classpath:application.properties", "classpath:revision.properties"})
 @Service
 @Slf4j
 public class SenderImpl implements Sender {
+    private final Queues queues;
     private final RequestCache requestCache;
     private final RabbitTemplate template;
     @Value("${rabbit.exchange}")
     private String exchange;
-    @Value("${rabbit.service.version}")
+    @Value("${git.commit.id.abbrev}")
     private String serviceVersion;
 
-    public SenderImpl(RequestCache requestCache, RabbitTemplate template) {
+    public SenderImpl(Queues queues, RequestCache requestCache, RabbitTemplate template) {
+        this.queues = queues;
         this.requestCache = requestCache;
         this.template = template;
     }
@@ -32,9 +36,9 @@ public class SenderImpl implements Sender {
     public void sendRequestToQueue(String key, String uuid, String action, Object body, String requestType) {
         List<Object> request;
         if (action.isEmpty()) {
-            request = List.of(ocpp.name(), uuid, body);
+            request = List.of(queues.getOCPP(), uuid, body);
         } else {
-            request = List.of(ocpp.name(), uuid, action, body);
+            request = List.of(queues.getOCPP(), uuid, action, body);
             requestCache.addToCache(request, requestType);
         }
         String message = (new Gson()).toJson(request);

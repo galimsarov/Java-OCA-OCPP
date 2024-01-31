@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import pss.mira.orp.JavaOCAOCPP.models.info.rabbit.DBTablesChangeInfo;
 import pss.mira.orp.JavaOCAOCPP.models.info.rabbit.DBTablesDeleteInfo;
+import pss.mira.orp.JavaOCAOCPP.models.queues.Queues;
 import pss.mira.orp.JavaOCAOCPP.service.cache.configuration.ConfigurationCache;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
@@ -18,7 +19,6 @@ import java.util.UUID;
 import static eu.chargetime.ocpp.model.reservation.ReservationStatus.*;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.*;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.reservation;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Queues.bd;
 import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.getStringDateForReservation;
 
 @Service
@@ -26,16 +26,18 @@ import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.getStringDateForReser
 public class ReservationHandlerImpl implements ReservationHandler {
     private final ConfigurationCache configurationCache;
     private final ConnectorsInfoCache connectorsInfoCache;
+    private final Queues queues;
     private final Sender sender;
     //    private List<Map<String, Object>> configurationList = null;
     private String reservationResult = null;
     private CancelReservationStatus cancelReservationStatus = null;
 
     public ReservationHandlerImpl(
-            ConfigurationCache configurationCache, ConnectorsInfoCache connectorsInfoCache, Sender sender
+            ConfigurationCache configurationCache, ConnectorsInfoCache connectorsInfoCache, Queues queues, Sender sender
     ) {
         this.configurationCache = configurationCache;
         this.connectorsInfoCache = connectorsInfoCache;
+        this.queues = queues;
         this.sender = sender;
     }
 
@@ -71,7 +73,7 @@ public class ReservationHandlerImpl implements ReservationHandler {
             private void fillReservationResult(ReserveNowRequest request) {
                 if ((request.getConnectorId() != 0) || configurationCache.reserveConnectorsZeroSupported()) {
                     sender.sendRequestToQueue(
-                            bd.name(),
+                            queues.getDateBase(),
                             UUID.randomUUID().toString(),
                             Change.name(),
                             new DBTablesChangeInfo(
@@ -167,7 +169,7 @@ public class ReservationHandlerImpl implements ReservationHandler {
             public CancelReservationConfirmation handleCancelReservationRequest(CancelReservationRequest request) {
                 log.info("Received from the central system: " + request.toString());
                 sender.sendRequestToQueue(
-                        bd.name(),
+                        queues.getDateBase(),
                         UUID.randomUUID().toString(),
                         Delete.name(),
                         new DBTablesDeleteInfo(

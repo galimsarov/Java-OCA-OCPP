@@ -21,5 +21,5 @@ public interface ConfigurationCache {
 
     boolean reservationSupported();
 
-    void addToCache(List<Map<String, Object>> parsedMessage);
+    void addToCache(List<Map<String, Object>> configurations);
 }

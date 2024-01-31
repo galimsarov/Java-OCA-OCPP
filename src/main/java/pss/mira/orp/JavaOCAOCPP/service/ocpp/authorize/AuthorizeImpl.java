@@ -11,6 +11,7 @@ import eu.chargetime.ocpp.model.core.AuthorizeConfirmation;
 import eu.chargetime.ocpp.model.core.IdTagInfo;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import pss.mira.orp.JavaOCAOCPP.models.queues.Queues;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
@@ -26,7 +27,6 @@ import java.util.UUID;
 import static eu.chargetime.ocpp.model.core.AuthorizationStatus.Invalid;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.Get;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.auth_list;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Queues.bd;
 import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.*;
 
 @Service
@@ -38,6 +38,7 @@ public class AuthorizeImpl implements Authorize {
     private final ChargeSessionMap chargeSessionMap;
     private final CoreHandler coreHandler;
     private final RemoteTriggerHandler remoteTriggerHandler;
+    private final Queues queues;
     private final Sender sender;
 
     public AuthorizeImpl(
@@ -45,6 +46,7 @@ public class AuthorizeImpl implements Authorize {
             ConnectorsInfoCache connectorsInfoCache,
             ChargeSessionMap chargeSessionMap,
             CoreHandler coreHandler,
+            Queues queues,
             RemoteTriggerHandler remoteTriggerHandler,
             Sender sender
     ) {
@@ -52,6 +54,7 @@ public class AuthorizeImpl implements Authorize {
         this.connectorsInfoCache = connectorsInfoCache;
         this.chargeSessionMap = chargeSessionMap;
         this.coreHandler = coreHandler;
+        this.queues = queues;
         this.remoteTriggerHandler = remoteTriggerHandler;
         this.sender = sender;
     }
@@ -115,7 +118,7 @@ public class AuthorizeImpl implements Authorize {
 
     private void checkAuthWithDB(String idTag, String consumer, String requestUuid, int connectorId) {
         sender.sendRequestToQueue(
-                bd.name(),
+                queues.getDateBase(),
                 UUID.randomUUID().toString(),
                 Get.name(),
                 getDBTablesGetRequest(List.of(auth_list.name())),
