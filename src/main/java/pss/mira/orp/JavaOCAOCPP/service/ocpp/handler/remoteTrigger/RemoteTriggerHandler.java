@@ -8,4 +8,6 @@ public interface RemoteTriggerHandler {
     void setRemoteTriggerTaskFinished();
 
     void waitForRemoteTriggerTaskComplete();
+
+    void meterValuesCanBeSent();
 }

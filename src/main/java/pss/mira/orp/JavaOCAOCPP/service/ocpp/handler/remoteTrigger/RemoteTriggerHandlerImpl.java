@@ -23,6 +23,8 @@ import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.getDBTablesGetRequest
 public class RemoteTriggerHandlerImpl implements RemoteTriggerHandler {
     private final Queues queues;
     private final Sender sender;
+    private boolean meterValuesCanBeSent = false;
+
     private boolean remoteTriggerTaskExecuting = false;
 
     public RemoteTriggerHandlerImpl(Queues queues, Sender sender) {
@@ -54,7 +56,12 @@ public class RemoteTriggerHandlerImpl implements RemoteTriggerHandler {
                         log.info("Sent to central system: " + result);
                         return result;
                     }
-                    case MeterValues, StatusNotification -> {
+                    case MeterValues -> {
+                        if (meterValuesCanBeSent) {
+
+                        }
+                    }
+                    case StatusNotification -> {
                     }
                 }
                 return null;
@@ -118,5 +125,10 @@ public class RemoteTriggerHandlerImpl implements RemoteTriggerHandler {
                 break;
             }
         }
+    }
+
+    @Override
+    public void meterValuesCanBeSent() {
+        meterValuesCanBeSent = true;
     }
 }
