@@ -133,6 +133,7 @@ public class ListenerImpl implements Listener {
                         case "Authorize" -> authorize.sendAuthorize(parsedMessage);
                         case "DataTransfer" -> dataTransfer.sendDataTransfer(parsedMessage);
                         case "LocalStop" -> stopTransaction.sendLocalStop(parsedMessage);
+                        case "SendHeartbeatToCentralSystem" -> bootNotification.sendTriggerMessageHeartbeat();
                         case "StartTransaction" -> startTransaction.sendStartTransaction(parsedMessage);
                     }
                 }

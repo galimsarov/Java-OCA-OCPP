@@ -18,6 +18,7 @@ public enum Actions {
     // ocpp, то есть, сам себе
     Authorize,
     SaveToCache,
+    SendHeartbeatToCentralSystem,
     // ModBus
     ChangeAvailability,
     GetConfiguration,

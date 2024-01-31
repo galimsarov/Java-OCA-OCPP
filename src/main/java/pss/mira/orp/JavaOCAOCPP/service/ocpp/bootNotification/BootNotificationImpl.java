@@ -153,8 +153,16 @@ public class BootNotificationImpl implements BootNotification {
             thread.start();
             heartbeatThread = thread;
 
-            remoteTriggerHandler.setRemoteTriggerTaskFinished();
+            if (source.equals("remoteTrigger")) {
+                remoteTriggerHandler.setRemoteTriggerTaskFinished();
+            }
         }
+    }
+
+    @Override
+    public void sendTriggerMessageHeartbeat() {
+        heartbeat.sendHeartbeat(coreHandler.getCore(), getClient());
+        remoteTriggerHandler.setRemoteTriggerTaskFinished();
     }
 
     private Thread getHeartbeatThread(BootNotificationConfirmation bootNotificationConfirmation, String source) {

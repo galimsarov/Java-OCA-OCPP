@@ -14,8 +14,7 @@ import java.util.UUID;
 
 import static eu.chargetime.ocpp.model.remotetrigger.TriggerMessageStatus.Accepted;
 import static eu.chargetime.ocpp.model.remotetrigger.TriggerMessageStatus.NotImplemented;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.Get;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.RemoteTriggerBootNotification;
+import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.*;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.config_zs;
 import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.getDBTablesGetRequest;
 
@@ -49,12 +48,35 @@ public class RemoteTriggerHandlerImpl implements RemoteTriggerHandler {
                         return new TriggerMessageConfirmation(NotImplemented);
                     }
                     case Heartbeat -> {
-
+                        Thread sendAndHandleHeartbeatThread = getSendAndHandleHeartbeatThread();
+                        sendAndHandleHeartbeatThread.start();
+                        TriggerMessageConfirmation result = new TriggerMessageConfirmation(Accepted);
+                        log.info("Sent to central system: " + result);
+                        return result;
                     }
                     case MeterValues, StatusNotification -> {
                     }
                 }
                 return null;
+            }
+
+            private Thread getSendAndHandleHeartbeatThread() {
+                Runnable sendAndHandleHeartbeatTask = () -> {
+                    remoteTriggerTaskExecuting = true;
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        log.error("Аn error while sending trigger message confirmation");
+                    }
+                    sender.sendRequestToQueue(
+                            queues.getOCPP(),
+                            UUID.randomUUID().toString(),
+                            SendHeartbeatToCentralSystem.name(),
+                            new Object(),
+                            SendHeartbeatToCentralSystem.name()
+                    );
+                };
+                return new Thread(sendAndHandleHeartbeatTask);
             }
 
             private Thread getSendAndHandleBootNotificationThread() {

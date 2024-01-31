@@ -14,4 +14,6 @@ public interface BootNotification {
     Request getBootNotificationRequest();
 
     void handleResponse(Confirmation confirmation, String source);
+
+    void sendTriggerMessageHeartbeat();
 }
