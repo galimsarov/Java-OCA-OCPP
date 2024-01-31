@@ -7,6 +7,7 @@ import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 import pss.mira.orp.JavaOCAOCPP.models.info.ocpp.StatusNotificationInfo;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
+import pss.mira.orp.JavaOCAOCPP.service.cache.configuration.ConfigurationCache;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
 import pss.mira.orp.JavaOCAOCPP.service.cache.request.RequestCache;
 import pss.mira.orp.JavaOCAOCPP.service.cache.reservation.ReservationCache;
@@ -32,6 +33,7 @@ public class ListenerImpl implements Listener {
     private final Authorize authorize;
     private final BootNotification bootNotification;
     private final ChargeSessionMap chargeSessionMap;
+    private final ConfigurationCache configurationCache;
     private final ConnectorsInfoCache connectorsInfoCache;
     private final DataTransfer dataTransfer;
     private final CoreHandler coreHandler;
@@ -48,6 +50,7 @@ public class ListenerImpl implements Listener {
             Authorize authorize,
             BootNotification bootNotification,
             ChargeSessionMap chargeSessionMap,
+            ConfigurationCache configurationCache,
             ConnectorsInfoCache connectorsInfoCache,
             DataTransfer dataTransfer,
             CoreHandler coreHandler,
@@ -62,6 +65,7 @@ public class ListenerImpl implements Listener {
         this.authorize = authorize;
         this.bootNotification = bootNotification;
         this.chargeSessionMap = chargeSessionMap;
+        this.configurationCache = configurationCache;
         this.connectorsInfoCache = connectorsInfoCache;
         this.dataTransfer = dataTransfer;
         this.coreHandler = coreHandler;
@@ -95,8 +99,9 @@ public class ListenerImpl implements Listener {
                                     bootNotification.sendBootNotification(parsedMessage, "bootNotification");
                             case "changeConfiguration" -> coreHandler.setChangeConfigurationStatus(parsedMessage);
                             case "ChangeAvailability" -> coreHandler.setAvailabilityStatus(parsedMessage);
-                            case "getConfigurationForCoreHandler" -> coreHandler.setConfigurationList(parsedMessage);
-                            case "getConfigurationForMeterValues" -> meterValues.setConfigurationMap(parsedMessage);
+//                            case "getConfigurationForCoreHandler" -> coreHandler.setConfigurationList(parsedMessage);
+//                            case "getConfigurationForMeterValues" -> meterValues.setConfigurationMap(parsedMessage);
+                            case "GetConfiguration" -> configurationCache.createCache(parsedMessage);
                             case "GetConnectorsInfo" -> {
                                 List<StatusNotificationInfo> possibleRequests =
                                         connectorsInfoCache.createCache(parsedMessage);
@@ -115,8 +120,8 @@ public class ListenerImpl implements Listener {
                                     stopTransaction.checkTransactionCreation(parsedMessage, cashedRequest);
                             case "UnlockConnector" -> coreHandler.setUnlockConnectorStatus(parsedMessage);
                             // reservation
-                            case "getConfigurationForReservationHandler" ->
-                                    reservationHandler.setConfigurationList(parsedMessage);
+//                            case "getConfigurationForReservationHandler" ->
+//                                    reservationHandler.setConfigurationList(parsedMessage);
                             case "ReserveNow" -> reservationHandler.setReservationResult(parsedMessage);
                             case "CancelReservation" -> reservationHandler.setCancelReservationStatus(parsedMessage);
                         }
@@ -132,11 +137,11 @@ public class ListenerImpl implements Listener {
                     }
                 }
             } else {
-                log.error("Error when parsing a message from the broker. The length of the message must be 3 for the " +
+                log.error("Error when parsing a message from the ocpp queue. The length of the message must be 3 for the " +
                         "response and 4 for the request");
             }
         } catch (Exception e) {
-            log.error("Error when parsing a message from the broker");
+            log.error("Error when parsing a message from the ocpp queue");
         }
     }
 
@@ -158,7 +163,7 @@ public class ListenerImpl implements Listener {
                     removeFromChargingAndStopRemote(request);
                 }
             } catch (Exception e) {
-                log.error("Error when parsing a message from the broker");
+                log.error("Error when parsing a message from the connectorsInfoOcpp queue");
             }
             chargeSessionMap.deleteNotStartedRemoteTransactions();
         }
@@ -172,7 +177,19 @@ public class ListenerImpl implements Listener {
             List<Map<String, Object>> parsedMessage = objectMapper.readValue(message, List.class);
             reservationCache.addToCache(parsedMessage);
         } catch (Exception e) {
-            log.error("Error when parsing a message from the broker");
+            log.error("Error when parsing a message from the reservationOcpp queue");
+        }
+    }
+
+    @Override
+    @RabbitListener(queues = "configurationOcpp")
+    public void processConfiguration(String message) {
+        log.info("Received from configurationOcpp queue: " + message);
+        try {
+            List<Map<String, Object>> parsedMessage = objectMapper.readValue(message, List.class);
+            configurationCache.addToCache(parsedMessage);
+        } catch (Exception e) {
+            log.error("Error when parsing a message from the configurationOcpp queue");
         }
     }
 

@@ -6,4 +6,6 @@ public interface Listener {
     void processConnectorsInfo(String message);
 
     void processReservation(String message);
+
+    void processConfiguration(String message);
 }

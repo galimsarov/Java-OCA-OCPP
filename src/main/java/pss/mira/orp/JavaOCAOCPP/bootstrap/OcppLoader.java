@@ -10,10 +10,8 @@ import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 import java.util.List;
 import java.util.UUID;
 
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.Get;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.GetConnectorsInfo;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.config_zs;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.reservation;
+import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.*;
+import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.*;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Queues.ModBus;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Queues.bd;
 import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.getDBTablesGetRequest;
@@ -53,6 +51,14 @@ public class OcppLoader implements CommandLineRunner {
                 Get.name(),
                 getDBTablesGetRequest(List.of(reservation.name())),
                 reservation.name()
+        );
+
+        sender.sendRequestToQueue(
+                bd.name(),
+                UUID.randomUUID().toString(),
+                Get.name(),
+                getDBTablesGetRequest(List.of(configuration.name())),
+                GetConfiguration.name()
         );
     }
 

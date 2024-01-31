@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import pss.mira.orp.JavaOCAOCPP.models.info.rabbit.DBTablesChangeInfo;
 import pss.mira.orp.JavaOCAOCPP.models.info.rabbit.DBTablesDeleteInfo;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
+import pss.mira.orp.JavaOCAOCPP.service.cache.configuration.ConfigurationCache;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
 import pss.mira.orp.JavaOCAOCPP.service.cache.reservation.ReservationCache;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
@@ -27,18 +28,17 @@ import static eu.chargetime.ocpp.model.core.ResetType.Soft;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.*;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.*;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Queues.*;
-import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.getDBTablesGetRequest;
-import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.getResult;
 
 @Service
 @Slf4j
 public class CoreHandlerImpl implements CoreHandler {
+    private final ConfigurationCache configurationCache;
     private final ConnectorsInfoCache connectorsInfoCache;
     private final ChargeSessionMap chargeSessionMap;
     private final ReservationCache reservationCache;
     private final Sender sender;
     private AvailabilityStatus availabilityStatus = null;
-    private List<Map<String, Object>> configurationList = null;
+    //    private List<Map<String, Object>> configurationList = null;
     private ConfigurationStatus changeConfigurationStatus = null;
     private AuthorizeConfirmation authorizeConfirmation = null;
     private RemoteStartStopStatus remoteStartStatus = null;
@@ -47,11 +47,13 @@ public class CoreHandlerImpl implements CoreHandler {
     private UnlockStatus unlockConnectorStatus = null;
 
     public CoreHandlerImpl(
+            ConfigurationCache configurationCache,
             ConnectorsInfoCache connectorsInfoCache,
             ChargeSessionMap chargeSessionMap,
             ReservationCache reservationCache,
             Sender sender
     ) {
+        this.configurationCache = configurationCache;
         this.connectorsInfoCache = connectorsInfoCache;
         this.chargeSessionMap = chargeSessionMap;
         this.reservationCache = reservationCache;
@@ -96,43 +98,46 @@ public class CoreHandlerImpl implements CoreHandler {
             @Override
             public GetConfigurationConfirmation handleGetConfigurationRequest(GetConfigurationRequest request) {
                 log.info("Received from the central system: " + request.toString());
-                getConfigurationListFromDB();
-                while (true) {
-                    if (configurationList == null) {
-                        try {
-                            Thread.sleep(1000);
-                        } catch (InterruptedException e) {
-                            log.error("Аn error while waiting for a get configuration response");
-                        }
-                    } else {
-                        GetConfigurationConfirmation result = getGetConfigurationConfirmation(request);
-                        log.info("Send to the central system: " + result);
-                        configurationList = null;
-                        return result;
-                    }
-                }
+                GetConfigurationConfirmation result = configurationCache.getGetConfigurationConfirmation(request);
+                log.info("Send to the central system: " + result);
+                return result;
+//                getConfigurationListFromDB();
+//                while (true) {
+//                    if (configurationList == null) {
+//                        try {
+//                            Thread.sleep(1000);
+//                        } catch (InterruptedException e) {
+//                            log.error("Аn error while waiting for a get configuration response");
+//                        }
+//                    } else {
+//                        GetConfigurationConfirmation result = getGetConfigurationConfirmation(request);
+//                        log.info("Send to the central system: " + result);
+//                        configurationList = null;
+//                        return result;
+//                    }
+//                }
             }
 
-            private GetConfigurationConfirmation getGetConfigurationConfirmation(GetConfigurationRequest request) {
-                KeyValueType[] keyValueTypeArray = new KeyValueType[request.getKey().length];
-                for (int i = 0; i < keyValueTypeArray.length; i++) {
-                    String key = request.getKey()[i];
-                    for (Map<String, Object> map : configurationList) {
-                        String mapKey = map.get("key").toString();
-                        if (key.equals(mapKey)) {
-                            boolean readonly = Boolean.parseBoolean(map.get("readonly").toString());
-                            String value = map.get("value").toString();
-                            KeyValueType keyValueType = new KeyValueType(key, readonly);
-                            keyValueType.setValue(value);
-                            keyValueTypeArray[i] = keyValueType;
-                            break;
-                        }
-                    }
-                }
-                GetConfigurationConfirmation result = new GetConfigurationConfirmation();
-                result.setConfigurationKey(keyValueTypeArray);
-                return result;
-            }
+//            private GetConfigurationConfirmation getGetConfigurationConfirmation(GetConfigurationRequest request) {
+//                KeyValueType[] keyValueTypeArray = new KeyValueType[request.getKey().length];
+//                for (int i = 0; i < keyValueTypeArray.length; i++) {
+//                    String key = request.getKey()[i];
+//                    for (Map<String, Object> map : configurationList) {
+//                        String mapKey = map.get("key").toString();
+//                        if (key.equals(mapKey)) {
+//                            boolean readonly = Boolean.parseBoolean(map.get("readonly").toString());
+//                            String value = map.get("value").toString();
+//                            KeyValueType keyValueType = new KeyValueType(key, readonly);
+//                            keyValueType.setValue(value);
+//                            keyValueTypeArray[i] = keyValueType;
+//                            break;
+//                        }
+//                    }
+//                }
+//                GetConfigurationConfirmation result = new GetConfigurationConfirmation();
+//                result.setConfigurationKey(keyValueTypeArray);
+//                return result;
+//            }
 
             @Override
             public ChangeConfigurationConfirmation handleChangeConfigurationRequest(
@@ -192,38 +197,58 @@ public class CoreHandlerImpl implements CoreHandler {
                     log.info("Sent to central system: " + reservationReject);
                     return reservationReject;
                 }
-                getConfigurationListFromDB();
-                while (true) {
-                    if (configurationList == null) {
-                        try {
-                            Thread.sleep(1000);
-                        } catch (InterruptedException e) {
-                            log.error("Аn error while waiting for a get configuration response");
-                        }
-                    } else {
-                        if (getAuthorizeRemoteTxRequests()) {
-                            RemoteStartTransactionConfirmation notAuthorizedReject = getNotAuthorizedReject(request);
-                            if (notAuthorizedReject != null) {
-                                log.info("Sent to central system: " + notAuthorizedReject);
-                                return notAuthorizedReject;
-                            }
-                        }
-                        authorizeConfirmation = null;
-                        configurationList = null;
-                        interactWithChargePointLogic(request);
-                        RemoteStartTransactionConfirmation result =
-                                new RemoteStartTransactionConfirmation(remoteStartStatus);
-                        if (remoteStartStatus.equals(RemoteStartStopStatus.Accepted)) {
-                            chargeSessionMap.addToChargeSessionMap(
-                                    request.getConnectorId(), request.getIdTag(), true,
-                                    connectorsInfoCache.getStatusNotificationRequest(request.getConnectorId()).getStatus()
-                            );
-                        }
-                        remoteStartStatus = null;
-                        log.info("Sent to central system: " + result);
-                        return result;
+                if (configurationCache.getAuthorizeRemoteTxRequests()) {
+                    RemoteStartTransactionConfirmation notAuthorizedReject = getNotAuthorizedReject(request);
+                    if (notAuthorizedReject != null) {
+                        log.info("Sent to central system: " + notAuthorizedReject);
+                        return notAuthorizedReject;
                     }
                 }
+                authorizeConfirmation = null;
+                interactWithChargePointLogic(request);
+                RemoteStartTransactionConfirmation result =
+                        new RemoteStartTransactionConfirmation(remoteStartStatus);
+                if (remoteStartStatus.equals(RemoteStartStopStatus.Accepted)) {
+                    chargeSessionMap.addToChargeSessionMap(
+                            request.getConnectorId(), request.getIdTag(), true,
+                            connectorsInfoCache.getStatusNotificationRequest(request.getConnectorId()).getStatus()
+                    );
+                }
+                remoteStartStatus = null;
+                log.info("Sent to central system: " + result);
+                return result;
+//                getConfigurationListFromDB();
+//                while (true) {
+//                    if (configurationList == null) {
+//                        try {
+//                            Thread.sleep(1000);
+//                        } catch (InterruptedException e) {
+//                            log.error("Аn error while waiting for a get configuration response");
+//                        }
+//                    } else {
+//                        if (getAuthorizeRemoteTxRequests()) {
+//                            RemoteStartTransactionConfirmation notAuthorizedReject = getNotAuthorizedReject(request);
+//                            if (notAuthorizedReject != null) {
+//                                log.info("Sent to central system: " + notAuthorizedReject);
+//                                return notAuthorizedReject;
+//                            }
+//                        }
+//                        authorizeConfirmation = null;
+//                        configurationList = null;
+//                        interactWithChargePointLogic(request);
+//                        RemoteStartTransactionConfirmation result =
+//                                new RemoteStartTransactionConfirmation(remoteStartStatus);
+//                        if (remoteStartStatus.equals(RemoteStartStopStatus.Accepted)) {
+//                            chargeSessionMap.addToChargeSessionMap(
+//                                    request.getConnectorId(), request.getIdTag(), true,
+//                                    connectorsInfoCache.getStatusNotificationRequest(request.getConnectorId()).getStatus()
+//                            );
+//                        }
+//                        remoteStartStatus = null;
+//                        log.info("Sent to central system: " + result);
+//                        return result;
+//                    }
+//                }
             }
 
             private RemoteStartTransactionConfirmation getReservationReject(RemoteStartTransactionRequest request) {
@@ -248,15 +273,15 @@ public class CoreHandlerImpl implements CoreHandler {
                 return null;
             }
 
-            private void getConfigurationListFromDB() {
-                sender.sendRequestToQueue(
-                        bd.name(),
-                        UUID.randomUUID().toString(),
-                        Get.name(),
-                        getDBTablesGetRequest(List.of(configuration.name())),
-                        getConfigurationForCoreHandler.name()
-                );
-            }
+//            private void getConfigurationListFromDB() {
+//                sender.sendRequestToQueue(
+//                        bd.name(),
+//                        UUID.randomUUID().toString(),
+//                        Get.name(),
+//                        getDBTablesGetRequest(List.of(configuration.name())),
+//                        getConfigurationForCoreHandler.name()
+//                );
+//            }
 
             private void interactWithChargePointLogic(RemoteStartTransactionRequest request) {
                 Map<String, Integer> map = new HashMap<>();
@@ -311,15 +336,15 @@ public class CoreHandlerImpl implements CoreHandler {
                 return null;
             }
 
-            private boolean getAuthorizeRemoteTxRequests() {
-                for (Map<String, Object> map : configurationList) {
-                    String key = map.get("key").toString();
-                    if (key.equals("AuthorizeRemoteTxRequests")) {
-                        return Boolean.parseBoolean(map.get("value").toString());
-                    }
-                }
-                return false;
-            }
+//            private boolean getAuthorizeRemoteTxRequests() {
+//                for (Map<String, Object> map : configurationList) {
+//                    String key = map.get("key").toString();
+//                    if (key.equals("AuthorizeRemoteTxRequests")) {
+//                        return Boolean.parseBoolean(map.get("value").toString());
+//                    }
+//                }
+//                return false;
+//            }
 
             @Override
             public RemoteStopTransactionConfirmation handleRemoteStopTransactionRequest(
@@ -462,14 +487,14 @@ public class CoreHandlerImpl implements CoreHandler {
         }
     }
 
-    @Override
-    public void setConfigurationList(List<Object> parsedMessage) {
-        try {
-            configurationList = getResult(parsedMessage);
-        } catch (Exception ignored) {
-            log.error("An error occurred while receiving configuration table from the message");
-        }
-    }
+//    @Override
+//    public void setConfigurationList(List<Object> parsedMessage) {
+//        try {
+//            configurationList = getResult(parsedMessage);
+//        } catch (Exception ignored) {
+//            log.error("An error occurred while receiving configuration table from the message");
+//        }
+//    }
 
     @Override
     public void setChangeConfigurationStatus(List<Object> parsedMessage) {

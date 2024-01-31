@@ -9,7 +9,7 @@ public interface CoreHandler {
 
     void setAvailabilityStatus(List<Object> parsedMessage);
 
-    void setConfigurationList(List<Object> parsedMessage);
+//    void setConfigurationList(List<Object> parsedMessage);
 
     void setChangeConfigurationStatus(List<Object> parsedMessage);
 

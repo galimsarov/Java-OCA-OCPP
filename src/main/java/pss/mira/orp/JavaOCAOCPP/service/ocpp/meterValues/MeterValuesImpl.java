@@ -9,6 +9,7 @@ import eu.chargetime.ocpp.model.core.SampledValue;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
+import pss.mira.orp.JavaOCAOCPP.service.cache.configuration.ConfigurationCache;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.core.CoreHandler;
@@ -18,34 +19,31 @@ import java.time.ZonedDateTime;
 import java.util.*;
 
 import static eu.chargetime.ocpp.model.core.ValueFormat.Raw;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.Get;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.SaveToCache;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.configuration;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.getConfigurationForMeterValues;
-import static pss.mira.orp.JavaOCAOCPP.models.enums.Queues.bd;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Queues.ocppCache;
-import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.getDBTablesGetRequest;
-import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.getResult;
 
 @Service
 @Slf4j
 public class MeterValuesImpl implements MeterValues {
     private final BootNotification bootNotification;
+    private final ConfigurationCache configurationCache;
     private final ChargeSessionMap chargeSessionMap;
     private final ConnectorsInfoCache connectorsInfoCache;
     private final CoreHandler coreHandler;
     private final Sender sender;
     private final Set<Integer> chargingConnectors = new HashSet<>();
-    private List<Map<String, Object>> configurationList = null;
+//    private List<Map<String, Object>> configurationList = null;
 
     public MeterValuesImpl(
             BootNotification bootNotification,
+            ConfigurationCache configurationCache,
             ChargeSessionMap chargeSessionMap,
             ConnectorsInfoCache connectorsInfoCache,
             CoreHandler coreHandler,
             Sender sender
     ) {
         this.bootNotification = bootNotification;
+        this.configurationCache = configurationCache;
         this.chargeSessionMap = chargeSessionMap;
         this.connectorsInfoCache = connectorsInfoCache;
         this.coreHandler = coreHandler;
@@ -55,63 +53,71 @@ public class MeterValuesImpl implements MeterValues {
     @Override
     public void addToChargingConnectors(int connectorId, int transactionId) {
         chargingConnectors.add(connectorId);
-        // Запрашиваем актуальную конфигурацию
-        log.info("Trying to receive the configuration from DB");
-        sender.sendRequestToQueue(
-                bd.name(),
-                UUID.randomUUID().toString(),
-                Get.name(),
-                getDBTablesGetRequest(List.of(configuration.name())),
-                getConfigurationForMeterValues.name()
-        );
-        String meterValuesSampledData;
-        int meterValueSampleInterval;
-        // Дожидаемся ответа, потому что без перечня данных и интервала нет смысла ничего запускать
-        while (true) {
-            if (configurationList == null) {
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    log.error("Аn error while waiting for a get configuration response");
-                }
-            } else {
-                meterValuesSampledData = getMeterValuesSampledData();
-                meterValueSampleInterval = getMeterValueSampleInterval();
-                configurationList = null;
-                break;
-            }
-        }
+        String meterValuesSampledData = configurationCache.getMeterValuesSampledData();
+        int meterValueSampleInterval = configurationCache.getMeterValueSampleInterval();
         if (meterValuesSampledData != null && meterValueSampleInterval != 0) {
             sendMeterValues(connectorId, meterValuesSampledData, "Transaction.Begin", transactionId);
             Thread meterValuesThread =
                     getMeterValuesThread(connectorId, meterValueSampleInterval, meterValuesSampledData, transactionId);
             meterValuesThread.start();
         }
+//        // Запрашиваем актуальную конфигурацию
+//        log.info("Trying to receive the configuration from DB");
+//        sender.sendRequestToQueue(
+//                bd.name(),
+//                UUID.randomUUID().toString(),
+//                Get.name(),
+//                getDBTablesGetRequest(List.of(configuration.name())),
+//                getConfigurationForMeterValues.name()
+//        );
+//        String meterValuesSampledData;
+//        int meterValueSampleInterval;
+//        // Дожидаемся ответа, потому что без перечня данных и интервала нет смысла ничего запускать
+//        while (true) {
+//            if (configurationList == null) {
+//                try {
+//                    Thread.sleep(1000);
+//                } catch (InterruptedException e) {
+//                    log.error("Аn error while waiting for a get configuration response");
+//                }
+//            } else {
+//                meterValuesSampledData = getMeterValuesSampledData();
+//                meterValueSampleInterval = getMeterValueSampleInterval();
+//                configurationList = null;
+//                break;
+//            }
+//        }
+//        if (meterValuesSampledData != null && meterValueSampleInterval != 0) {
+//            sendMeterValues(connectorId, meterValuesSampledData, "Transaction.Begin", transactionId);
+//            Thread meterValuesThread =
+//                    getMeterValuesThread(connectorId, meterValueSampleInterval, meterValuesSampledData, transactionId);
+//            meterValuesThread.start();
+//        }
     }
 
-    private int getMeterValueSampleInterval() {
-        try {
-            for (Map<String, Object> map : configurationList) {
-                if (map.get("key").toString().equals("MeterValueSampleInterval")) {
-                    return Integer.parseInt(map.get("value").toString());
-                }
-            }
-        } catch (Exception ignored) {
-        }
-        return 0;
-    }
+//    private int getMeterValueSampleInterval() {
+//        try {
+//            for (Map<String, Object> map : configurationList) {
+//                if (map.get("key").toString().equals("MeterValueSampleInterval")) {
+//                    return Integer.parseInt(map.get("value").toString());
+//                }
+//            }
+//        } catch (Exception ignored) {
+//        }
+//        return 0;
+//    }
 
-    private String getMeterValuesSampledData() {
-        try {
-            for (Map<String, Object> map : configurationList) {
-                if (map.get("key").toString().equals("MeterValuesSampledData")) {
-                    return map.get("value").toString();
-                }
-            }
-        } catch (Exception ignored) {
-        }
-        return null;
-    }
+//    private String getMeterValuesSampledData() {
+//        try {
+//            for (Map<String, Object> map : configurationList) {
+//                if (map.get("key").toString().equals("MeterValuesSampledData")) {
+//                    return map.get("value").toString();
+//                }
+//            }
+//        } catch (Exception ignored) {
+//        }
+//        return null;
+//    }
 
     private Thread getMeterValuesThread(
             int connectorId, int meterValueSampleInterval, String meterValuesSampledData, int transactionId
@@ -225,42 +231,47 @@ public class MeterValuesImpl implements MeterValues {
 
     @Override
     public void removeFromChargingConnectors(int connectorId) {
-        // Запрашиваем актуальную конфигурацию
-        log.info("Trying to receive the configuration from DB");
-        sender.sendRequestToQueue(
-                bd.name(),
-                UUID.randomUUID().toString(),
-                Get.name(),
-                getDBTablesGetRequest(List.of(configuration.name())),
-                getConfigurationForMeterValues.name()
-        );
-        String meterValuesSampledData;
-        // Дожидаемся ответа, потому что нужен перечень данных
-        while (true) {
-            if (configurationList == null) {
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    log.error("Аn error while waiting for a get configuration response");
-                }
-            } else {
-                meterValuesSampledData = getMeterValuesSampledData();
-                configurationList = null;
-                break;
-            }
-        }
+        String meterValuesSampledData = configurationCache.getMeterValuesSampledData();
         int transactionId = chargeSessionMap.getChargeSessionInfo(connectorId).getTransactionId();
         chargeSessionMap.removeFromChargeSessionMap(connectorId);
         chargingConnectors.remove(connectorId);
         sendMeterValues(connectorId, meterValuesSampledData, "Transaction.End", transactionId);
+//        // Запрашиваем актуальную конфигурацию
+//        log.info("Trying to receive the configuration from DB");
+//        sender.sendRequestToQueue(
+//                bd.name(),
+//                UUID.randomUUID().toString(),
+//                Get.name(),
+//                getDBTablesGetRequest(List.of(configuration.name())),
+//                getConfigurationForMeterValues.name()
+//        );
+//        String meterValuesSampledData;
+//        // Дожидаемся ответа, потому что нужен перечень данных
+//        while (true) {
+//            if (configurationList == null) {
+//                try {
+//                    Thread.sleep(1000);
+//                } catch (InterruptedException e) {
+//                    log.error("Аn error while waiting for a get configuration response");
+//                }
+//            } else {
+//                meterValuesSampledData = getMeterValuesSampledData();
+//                configurationList = null;
+//                break;
+//            }
+//        }
+//        int transactionId = chargeSessionMap.getChargeSessionInfo(connectorId).getTransactionId();
+//        chargeSessionMap.removeFromChargeSessionMap(connectorId);
+//        chargingConnectors.remove(connectorId);
+//        sendMeterValues(connectorId, meterValuesSampledData, "Transaction.End", transactionId);
     }
 
-    @Override
-    public void setConfigurationMap(List<Object> parsedMessage) {
-        try {
-            configurationList = getResult(parsedMessage);
-        } catch (Exception ignored) {
-            log.error("An error occurred while receiving configuration table from the message");
-        }
-    }
+//    @Override
+//    public void setConfigurationMap(List<Object> parsedMessage) {
+//        try {
+//            configurationList = getResult(parsedMessage);
+//        } catch (Exception ignored) {
+//            log.error("An error occurred while receiving configuration table from the message");
+//        }
+//    }
 }

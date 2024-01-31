@@ -20,5 +20,6 @@ public enum Actions {
     SaveToCache,
     // ModBus
     ChangeAvailability,
+    GetConfiguration,
     GetConnectorsInfo
 }
