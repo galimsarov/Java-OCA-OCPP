@@ -58,7 +58,6 @@ public class ConnectorsInfoCacheImpl implements ConnectorsInfoCache {
                     }
                 }
             }
-            connectorsMap.clear();
         } else {
             for (Map<String, Object> map : connectorsInfo) {
                 int id = Integer.parseInt(map.get("id").toString());

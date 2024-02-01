@@ -149,6 +149,8 @@ public class StopTransactionImpl implements StopTransaction {
                 chargeSessionMap.getChargeSessionInfo(connectorId).getTransactionId()
         );
         request.setReason(Remote);
+        int startFullStationConsumedEnergy = chargeSessionMap.getStartFullStationConsumedEnergy(connectorId);
+        int transactionId = chargeSessionMap.getChargeSessionInfo(connectorId).getTransactionId();
 
         if (client == null) {
             sender.sendRequestToQueue(
@@ -170,8 +172,8 @@ public class StopTransactionImpl implements StopTransaction {
                             "",
                             connectorId,
                             Remote.name(),
-                            chargeSessionMap.getStartFullStationConsumedEnergy(connectorId),
-                            chargeSessionMap.getChargeSessionInfo(connectorId).getTransactionId()
+                            startFullStationConsumedEnergy,
+                            transactionId
                     );
                 });
             } catch (OccurenceConstraintException | UnsupportedFeatureException ignored) {
