@@ -4,6 +4,7 @@ import pss.mira.orp.JavaOCAOCPP.models.info.ocpp.StatusNotificationInfo;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public interface ConnectorsInfoCache {
     List<StatusNotificationInfo> addToCache(List<Map<String, Object>> connectorsInfo);
@@ -31,4 +32,6 @@ public interface ConnectorsInfoCache {
     boolean isCharging(int connectorId);
 
     String getStatus(int connectorId);
+
+    Set<Integer> getConnectorsIds();
 }

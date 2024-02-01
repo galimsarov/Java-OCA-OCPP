@@ -7,7 +7,7 @@ import java.util.List;
 public interface CoreHandler {
     ClientCoreProfile getCore();
 
-    void setAvailabilityStatus(List<Object> parsedMessage);
+    void setConnectorAvailabilityStatus(List<Object> parsedMessage);
 
 //    void setConfigurationList(List<Object> parsedMessage);
 
@@ -20,4 +20,6 @@ public interface CoreHandler {
     void setResetStatus(List<Object> parsedMessage);
 
     void setUnlockConnectorStatus(List<Object> parsedMessage);
+
+    void setStationAvailabilityStatus(List<Object> parsedMessage);
 }

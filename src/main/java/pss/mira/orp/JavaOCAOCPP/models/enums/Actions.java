@@ -19,8 +19,10 @@ public enum Actions {
     Authorize,
     SaveToCache,
     SendHeartbeatToCentralSystem,
+    SendMeterValuesToCentralSystem,
     // ModBus
-    ChangeAvailability,
+    ChangeConnectorAvailability,
+    ChangeStationAvailability,
     GetConfiguration,
     GetConnectorsInfo
 }

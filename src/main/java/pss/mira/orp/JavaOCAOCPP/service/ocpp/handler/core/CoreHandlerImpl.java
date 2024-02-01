@@ -16,10 +16,7 @@ import pss.mira.orp.JavaOCAOCPP.service.cache.reservation.ReservationCache;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 import static eu.chargetime.ocpp.model.core.AuthorizationStatus.Accepted;
 import static eu.chargetime.ocpp.model.core.AuthorizationStatus.Invalid;
@@ -38,14 +35,15 @@ public class CoreHandlerImpl implements CoreHandler {
     private final Queues queues;
     private final ReservationCache reservationCache;
     private final Sender sender;
-    private AvailabilityStatus availabilityStatus = null;
-    //    private List<Map<String, Object>> configurationList = null;
+    private AvailabilityStatus connectorAvailabilityStatus = null;
     private ConfigurationStatus changeConfigurationStatus = null;
     private AuthorizeConfirmation authorizeConfirmation = null;
     private RemoteStartStopStatus remoteStartStatus = null;
     private RemoteStartStopStatus remoteStopStatus = null;
     private ResetStatus resetStatus = null;
     private UnlockStatus unlockConnectorStatus = null;
+    private final Set<String> sentUUIDs = new HashSet<>();
+    private final Map<String, AvailabilityStatus> receivedUUIDs = new HashMap<>();
 
     public CoreHandlerImpl(
             ConfigurationCache configurationCache,
@@ -75,27 +73,74 @@ public class CoreHandlerImpl implements CoreHandler {
             @Override
             public ChangeAvailabilityConfirmation handleChangeAvailabilityRequest(ChangeAvailabilityRequest request) {
                 log.info("Received from the central system: " + request.toString());
-                sender.sendRequestToQueue(
-                        queues.getModBus(),
-                        UUID.randomUUID().toString(),
-                        ChangeAvailability.name(),
-                        request,
-                        ChangeAvailability.name()
-                );
+                if (request.getConnectorId() == 0) {
+                    return changeStationAvailability(request);
+                } else {
+                    sender.sendRequestToQueue(
+                            queues.getModBus(),
+                            UUID.randomUUID().toString(),
+                            ChangeConnectorAvailability.name(),
+                            request,
+                            ChangeConnectorAvailability.name()
+                    );
+                    while (true) {
+                        if (connectorAvailabilityStatus == null) {
+                            try {
+                                Thread.sleep(1000);
+                            } catch (InterruptedException e) {
+                                log.error("Аn error while waiting for a change availability response");
+                            }
+                        } else {
+                            ChangeAvailabilityConfirmation result =
+                                    new ChangeAvailabilityConfirmation(connectorAvailabilityStatus);
+                            log.info("Send to the central system: " + result);
+                            connectorAvailabilityStatus = null;
+                            return result;
+                        }
+                    }
+                }
+            }
+
+            private ChangeAvailabilityConfirmation changeStationAvailability(ChangeAvailabilityRequest request) {
+                for (Integer connectorId : connectorsInfoCache.getConnectorsIds()) {
+                    ChangeAvailabilityRequest connectorRequest =
+                            new ChangeAvailabilityRequest(connectorId, request.getType());
+                    UUID uuid = UUID.randomUUID();
+                    sender.sendRequestToQueue(
+                            queues.getModBus(),
+                            uuid.toString(),
+                            ChangeStationAvailability.name(),
+                            connectorRequest,
+                            ChangeStationAvailability.name()
+                    );
+                    sentUUIDs.add(uuid.toString());
+                }
                 while (true) {
-                    if (availabilityStatus == null) {
+                    if (sentUUIDs.size() != receivedUUIDs.size()) {
                         try {
                             Thread.sleep(1000);
                         } catch (InterruptedException e) {
                             log.error("Аn error while waiting for a change availability response");
                         }
                     } else {
-                        ChangeAvailabilityConfirmation result = new ChangeAvailabilityConfirmation(availabilityStatus);
+                        AvailabilityStatus stationAvailabilityStatus = getStationAvailabilityStatus(receivedUUIDs);
+                        ChangeAvailabilityConfirmation result =
+                                new ChangeAvailabilityConfirmation(stationAvailabilityStatus);
                         log.info("Send to the central system: " + result);
-                        availabilityStatus = null;
+                        sentUUIDs.clear();
+                        receivedUUIDs.clear();
                         return result;
                     }
                 }
+            }
+
+            private AvailabilityStatus getStationAvailabilityStatus(Map<String, AvailabilityStatus> receivedUUIDs) {
+                if (receivedUUIDs.containsValue(AvailabilityStatus.Rejected)) {
+                    return AvailabilityStatus.Rejected;
+                } else if (receivedUUIDs.containsValue(AvailabilityStatus.Scheduled)) {
+                    return AvailabilityStatus.Scheduled;
+                }
+                return AvailabilityStatus.Accepted;
             }
 
             @Override
@@ -388,17 +433,18 @@ public class CoreHandlerImpl implements CoreHandler {
     }
 
     @Override
-    public void setAvailabilityStatus(List<Object> parsedMessage) {
+    public void setConnectorAvailabilityStatus(List<Object> parsedMessage) {
         try {
             Map<String, String> map = (Map<String, String>) parsedMessage.get(2);
             for (AvailabilityStatus statusFromEnum : AvailabilityStatus.values()) {
                 if (statusFromEnum.name().equals(map.get("ChangeAvailability"))) {
-                    availabilityStatus = statusFromEnum;
+                    connectorAvailabilityStatus = statusFromEnum;
                     break;
                 }
             }
         } catch (Exception ignored) {
             log.error("An error occurred while receiving availabilityStatus from the message");
+            connectorAvailabilityStatus = AvailabilityStatus.Rejected;
         }
     }
 
@@ -484,5 +530,22 @@ public class CoreHandlerImpl implements CoreHandler {
             }
         }
         unlockConnectorStatus = UnlockStatus.NotSupported;
+    }
+
+    @Override
+    public void setStationAvailabilityStatus(List<Object> parsedMessage) {
+        try {
+            Map<String, String> map = (Map<String, String>) parsedMessage.get(2);
+            String uuid = parsedMessage.get(1).toString();
+            for (AvailabilityStatus statusFromEnum : AvailabilityStatus.values()) {
+                if (statusFromEnum.name().equals(map.get("ChangeAvailability"))) {
+                    receivedUUIDs.put(uuid, statusFromEnum);
+                    break;
+                }
+            }
+        } catch (Exception ignored) {
+            log.error("An error occurred while receiving availabilityStatus from the message");
+            receivedUUIDs.put("", AvailabilityStatus.Rejected);
+        }
     }
 }

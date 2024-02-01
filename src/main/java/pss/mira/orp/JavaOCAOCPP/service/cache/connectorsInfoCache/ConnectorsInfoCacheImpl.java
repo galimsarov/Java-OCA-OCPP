@@ -7,10 +7,7 @@ import org.springframework.stereotype.Service;
 import pss.mira.orp.JavaOCAOCPP.models.info.ocpp.StatusNotificationInfo;
 import pss.mira.orp.JavaOCAOCPP.service.cache.reservation.ReservationCache;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static pss.mira.orp.JavaOCAOCPP.models.enums.ConnectorStatus.Charging;
 
@@ -201,5 +198,10 @@ public class ConnectorsInfoCacheImpl implements ConnectorsInfoCache {
     @Override
     public String getStatus(int connectorId) {
         return connectorsMap.get(connectorId).get("status").toString();
+    }
+
+    @Override
+    public Set<Integer> getConnectorsIds() {
+        return connectorsMap.keySet();
     }
 }

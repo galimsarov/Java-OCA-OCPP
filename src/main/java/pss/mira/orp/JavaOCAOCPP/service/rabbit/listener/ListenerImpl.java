@@ -98,7 +98,9 @@ public class ListenerImpl implements Listener {
                             case "BootNotification" ->
                                     bootNotification.sendBootNotification(parsedMessage, "bootNotification");
                             case "changeConfiguration" -> coreHandler.setChangeConfigurationStatus(parsedMessage);
-                            case "ChangeAvailability" -> coreHandler.setAvailabilityStatus(parsedMessage);
+                            case "ChangeConnectorAvailability" ->
+                                    coreHandler.setConnectorAvailabilityStatus(parsedMessage);
+                            case "ChangeStationAvailability" -> coreHandler.setStationAvailabilityStatus(parsedMessage);
                             case "GetConfiguration" -> configurationCache.createCache(parsedMessage);
                             case "GetConnectorsInfo" -> {
                                 List<StatusNotificationInfo> possibleRequests =
@@ -145,7 +147,7 @@ public class ListenerImpl implements Listener {
     @Override
     // prod, test -> connectorsInfoOcpp
     // dev -> myQueue1
-    @RabbitListener(queues = "connectorsInfoOcpp")
+    @RabbitListener(queues = "myQueue1")
     public void processConnectorsInfo(String message) {
         log.info("Received from connectorsInfoOcpp queue: " + message);
         if (!connectorsInfoCache.isEmpty()) {

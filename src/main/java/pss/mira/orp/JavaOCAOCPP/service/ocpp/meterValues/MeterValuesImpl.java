@@ -94,12 +94,9 @@ public class MeterValuesImpl implements MeterValues {
         ClientCoreProfile core = coreHandler.getCore();
         JSONClient client = bootNotification.getClient();
         SampledValue[] sampledValues = getSampledValues(meterValuesSampledData, connectorId, context);
-
         // Use the feature profile to help create event
         MeterValuesRequest request = core.createMeterValuesRequest(connectorId, ZonedDateTime.now(), sampledValues);
         request.setTransactionId(transactionId);
-        cachedMeterValuesRequest = request;
-        remoteTriggerHandler.meterValuesCanBeSent();
         if (client == null) {
             sender.sendRequestToQueue(
                     queues.getOCPPCache(),
@@ -118,6 +115,8 @@ public class MeterValuesImpl implements MeterValues {
                 log.warn("An error occurred while sending or processing meter value request");
             }
         }
+        cachedMeterValuesRequest = request;
+        remoteTriggerHandler.meterValuesCanBeSent();
     }
 
     private SampledValue[] getSampledValues(String meterValuesSampledData, int connectorId, String context) {
