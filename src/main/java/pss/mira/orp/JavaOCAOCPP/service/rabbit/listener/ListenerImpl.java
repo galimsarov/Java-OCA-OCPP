@@ -147,7 +147,7 @@ public class ListenerImpl implements Listener {
     @Override
     // prod, test -> connectorsInfoOcpp
     // dev -> myQueue1
-    @RabbitListener(queues = "myQueue1")
+    @RabbitListener(queues = "connectorsInfoOcpp")
     public void processConnectorsInfo(String message) {
         log.info("Received from connectorsInfoOcpp queue: " + message);
         if (!connectorsInfoCache.isEmpty()) {
@@ -193,7 +193,9 @@ public class ListenerImpl implements Listener {
     }
 
     private void removeFromChargingAndStopRemote(StatusNotificationInfo request) {
-        if (request.getStatus().equals(Finishing) && !reservationCache.reserved(request.getId())) {
+        if ((request.getStatus().equals(Finishing) || request.getStatus().equals(Faulted)) &&
+                !reservationCache.reserved(request.getId())
+        ) {
             if (chargeSessionMap.isRemoteStop(request.getId())) {
                 stopTransaction.sendRemoteStop(request.getId());
             }
