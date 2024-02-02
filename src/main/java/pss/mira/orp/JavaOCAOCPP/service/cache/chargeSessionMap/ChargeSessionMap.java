@@ -33,4 +33,12 @@ public interface ChargeSessionMap {
     void deleteNotStartedRemoteTransactions();
 
     boolean isNotEmpty();
+
+    boolean isLocalStop(int connectorId);
+
+    void setLocalStop(int connectorId);
+
+    void setFinishOrFaulted(int connectorId);
+
+    boolean isFinishedOrFaulted(int connectorId);
 }

@@ -77,7 +77,9 @@ public class StopTransactionImpl implements StopTransaction {
                     int connectorId = Integer.parseInt(stopTransactionMap.get("connectorId").toString());
                     String reason = stopTransactionMap.get("reason").toString();
                     int transactionId = chargeSessionMap.getChargeSessionInfo(connectorId).getTransactionId();
-                    int startFullStationConsumedEnergy = chargeSessionMap.getStartFullStationConsumedEnergy(connectorId);
+                    int startFullStationConsumedEnergy =
+                            chargeSessionMap.getStartFullStationConsumedEnergy(connectorId);
+                    chargeSessionMap.setLocalStop(connectorId);
                     while (true) {
                         if (connectorsInfoCache.isCharging(connectorId)) {
                             Thread.sleep(1000);
@@ -277,6 +279,11 @@ public class StopTransactionImpl implements StopTransaction {
         }
         if (processedLocalRequests.get(requestUuid) == 3) {
             processedLocalRequests.remove(requestUuid);
+        }
+        if ((chargeSessionMap.getChargeSessionInfo(connectorId) != null) &&
+                chargeSessionMap.isFinishedOrFaulted(connectorId)
+        ) {
+            meterValues.removeFromChargingConnectors(connectorId);
         }
     }
 }

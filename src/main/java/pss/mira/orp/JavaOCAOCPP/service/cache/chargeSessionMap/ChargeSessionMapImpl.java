@@ -116,4 +116,24 @@ public class ChargeSessionMapImpl implements ChargeSessionMap {
     public boolean isNotEmpty() {
         return !map.isEmpty();
     }
+
+    @Override
+    public boolean isLocalStop(int connectorId) {
+        return map.get(connectorId).isLocalStop();
+    }
+
+    @Override
+    public void setLocalStop(int connectorId) {
+        map.get(connectorId).setLocalStop(true);
+    }
+
+    @Override
+    public void setFinishOrFaulted(int connectorId) {
+        map.get(connectorId).setFinishedOrFaulted(true);
+    }
+
+    @Override
+    public boolean isFinishedOrFaulted(int connectorId) {
+        return map.get(connectorId).isFinishedOrFaulted();
+    }
 }

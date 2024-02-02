@@ -11,4 +11,6 @@ public class ChargeSessionInfo {
     private int startFullStationConsumedEnergy = 0;
     private boolean isRemoteStart = false;
     private boolean isRemoteStop = false;
+    private boolean isLocalStop = false;
+    private boolean isFinishedOrFaulted = false;
 }
