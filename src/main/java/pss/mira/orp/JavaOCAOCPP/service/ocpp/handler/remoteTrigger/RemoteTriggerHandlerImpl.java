@@ -2,6 +2,7 @@ package pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.remoteTrigger;
 
 import eu.chargetime.ocpp.feature.profile.ClientRemoteTriggerEventHandler;
 import eu.chargetime.ocpp.feature.profile.ClientRemoteTriggerProfile;
+import eu.chargetime.ocpp.model.core.MeterValuesRequest;
 import eu.chargetime.ocpp.model.remotetrigger.TriggerMessageConfirmation;
 import eu.chargetime.ocpp.model.remotetrigger.TriggerMessageRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -9,11 +10,12 @@ import org.springframework.stereotype.Service;
 import pss.mira.orp.JavaOCAOCPP.models.queues.Queues;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
-import static eu.chargetime.ocpp.model.remotetrigger.TriggerMessageStatus.Accepted;
-import static eu.chargetime.ocpp.model.remotetrigger.TriggerMessageStatus.NotImplemented;
+import static eu.chargetime.ocpp.model.remotetrigger.TriggerMessageStatus.*;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.*;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.config_zs;
 import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.getDBTablesGetRequest;
@@ -23,9 +25,8 @@ import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.getDBTablesGetRequest
 public class RemoteTriggerHandlerImpl implements RemoteTriggerHandler {
     private final Queues queues;
     private final Sender sender;
-    private boolean meterValuesCanBeSent = false;
-
     private boolean remoteTriggerTaskExecuting = false;
+    private Map<Integer, MeterValuesRequest> cachedMeterValuesRequestsMap = new HashMap<>();
 
     public RemoteTriggerHandlerImpl(Queues queues, Sender sender) {
         this.queues = queues;
@@ -40,25 +41,27 @@ public class RemoteTriggerHandlerImpl implements RemoteTriggerHandler {
                 log.info("Received from the central system: " + request.toString());
                 switch (request.getRequestedMessage()) {
                     case BootNotification -> {
-                        Thread sendAndHandleBootNotificationThread = getSendAndHandleBootNotificationThread();
-                        sendAndHandleBootNotificationThread.start();
-                        TriggerMessageConfirmation result = new TriggerMessageConfirmation(Accepted);
-                        log.info("Sent to central system: " + result);
-                        return result;
+                        return getBootNotificationTriggerMessageConfirmation();
                     }
                     case DiagnosticsStatusNotification, FirmwareStatusNotification -> {
                         return new TriggerMessageConfirmation(NotImplemented);
                     }
                     case Heartbeat -> {
-                        Thread sendAndHandleHeartbeatThread = getSendAndHandleHeartbeatThread();
-                        sendAndHandleHeartbeatThread.start();
-                        TriggerMessageConfirmation result = new TriggerMessageConfirmation(Accepted);
-                        log.info("Sent to central system: " + result);
-                        return result;
+                        return getHeartbeatTriggerMessageConfirmation();
                     }
                     case MeterValues -> {
-                        if (meterValuesCanBeSent) {
-
+                        int connectorId;
+                        if (request.getConnectorId() == null) {
+                            connectorId = 0;
+                        } else {
+                            connectorId = request.getConnectorId();
+                        }
+                        if (meterValuesCanBeSent(connectorId)) {
+                            return getMeterValuesTriggerMessageConfirmation(connectorId);
+                        } else {
+                            TriggerMessageConfirmation result = new TriggerMessageConfirmation(Rejected);
+                            log.info("Sent to central system: " + result);
+                            return result;
                         }
                     }
                     case StatusNotification -> {
@@ -67,8 +70,24 @@ public class RemoteTriggerHandlerImpl implements RemoteTriggerHandler {
                 return null;
             }
 
-            private Thread getSendAndHandleHeartbeatThread() {
-                Runnable sendAndHandleHeartbeatTask = () -> {
+            private boolean meterValuesCanBeSent(int connectorId) {
+                if (connectorId == 0) {
+                    return !cachedMeterValuesRequestsMap.isEmpty();
+                } else {
+                    return cachedMeterValuesRequestsMap.get(connectorId) != null;
+                }
+            }
+
+            private TriggerMessageConfirmation getMeterValuesTriggerMessageConfirmation(int connectorId) {
+                Thread sendAndHandleMeterValuesConnectorThread = getSendAndHandleMeterValuesThread(connectorId);
+                sendAndHandleMeterValuesConnectorThread.start();
+                TriggerMessageConfirmation result = new TriggerMessageConfirmation(Accepted);
+                log.info("Sent to central system: " + result);
+                return result;
+            }
+
+            private Thread getSendAndHandleMeterValuesThread(int connectorId) {
+                Runnable sendAndHandleMeterValuesConnectorTask = () -> {
                     remoteTriggerTaskExecuting = true;
                     try {
                         Thread.sleep(1000);
@@ -78,12 +97,20 @@ public class RemoteTriggerHandlerImpl implements RemoteTriggerHandler {
                     sender.sendRequestToQueue(
                             queues.getOCPP(),
                             UUID.randomUUID().toString(),
-                            SendHeartbeatToCentralSystem.name(),
-                            new Object(),
-                            SendHeartbeatToCentralSystem.name()
+                            SendMeterValuesToCentralSystem.name(),
+                            Map.of("connectorId", connectorId),
+                            SendMeterValuesToCentralSystem.name()
                     );
                 };
-                return new Thread(sendAndHandleHeartbeatTask);
+                return new Thread(sendAndHandleMeterValuesConnectorTask);
+            }
+
+            private TriggerMessageConfirmation getBootNotificationTriggerMessageConfirmation() {
+                Thread sendAndHandleBootNotificationThread = getSendAndHandleBootNotificationThread();
+                sendAndHandleBootNotificationThread.start();
+                TriggerMessageConfirmation result = new TriggerMessageConfirmation(Accepted);
+                log.info("Sent to central system: " + result);
+                return result;
             }
 
             private Thread getSendAndHandleBootNotificationThread() {
@@ -103,6 +130,33 @@ public class RemoteTriggerHandlerImpl implements RemoteTriggerHandler {
                     );
                 };
                 return new Thread(sendAndHandleBootNotificationTask);
+            }
+
+            private TriggerMessageConfirmation getHeartbeatTriggerMessageConfirmation() {
+                Thread sendAndHandleHeartbeatThread = getSendAndHandleHeartbeatThread();
+                sendAndHandleHeartbeatThread.start();
+                TriggerMessageConfirmation result = new TriggerMessageConfirmation(Accepted);
+                log.info("Sent to central system: " + result);
+                return result;
+            }
+
+            private Thread getSendAndHandleHeartbeatThread() {
+                Runnable sendAndHandleHeartbeatTask = () -> {
+                    remoteTriggerTaskExecuting = true;
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        log.error("Аn error while sending trigger message confirmation");
+                    }
+                    sender.sendRequestToQueue(
+                            queues.getOCPP(),
+                            UUID.randomUUID().toString(),
+                            SendHeartbeatToCentralSystem.name(),
+                            new Object(),
+                            SendHeartbeatToCentralSystem.name()
+                    );
+                };
+                return new Thread(sendAndHandleHeartbeatTask);
             }
         });
     }
@@ -128,7 +182,7 @@ public class RemoteTriggerHandlerImpl implements RemoteTriggerHandler {
     }
 
     @Override
-    public void meterValuesCanBeSent() {
-        meterValuesCanBeSent = true;
+    public void setCachedMeterValuesRequestsMap(Map<Integer, MeterValuesRequest> cachedMeterValuesRequestsMap) {
+        this.cachedMeterValuesRequestsMap = cachedMeterValuesRequestsMap;
     }
 }

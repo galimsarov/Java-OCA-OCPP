@@ -66,6 +66,7 @@ public class StopTransactionImpl implements StopTransaction {
         Runnable finishingTask = () -> {
             String consumer = parsedMessage.get(0).toString();
             String requestUuid = parsedMessage.get(1).toString();
+            // TODO добавить очистку старых записей из processedLocalRequests
             if (processedLocalRequests.containsKey(requestUuid)) {
                 int count = processedLocalRequests.get(requestUuid);
                 count++;

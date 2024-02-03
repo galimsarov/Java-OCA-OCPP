@@ -9,6 +9,7 @@ import eu.chargetime.ocpp.model.Request;
 import eu.chargetime.ocpp.model.core.HeartbeatConfirmation;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.remoteTrigger.RemoteTriggerHandler;
 import pss.mira.orp.JavaOCAOCPP.service.pc.TimeSetter;
 
 import java.util.Set;
@@ -16,9 +17,11 @@ import java.util.Set;
 @Service
 @Slf4j
 public class HeartbeatImpl implements Heartbeat {
+    private final RemoteTriggerHandler remoteTriggerHandler;
     private final TimeSetter timeSetter;
 
-    public HeartbeatImpl(TimeSetter timeSetter) {
+    public HeartbeatImpl(RemoteTriggerHandler remoteTriggerHandler, TimeSetter timeSetter) {
+        this.remoteTriggerHandler = remoteTriggerHandler;
         this.timeSetter = timeSetter;
     }
 
@@ -33,6 +36,7 @@ public class HeartbeatImpl implements Heartbeat {
             log.info("Sent to central system: " + request.toString());
             // Client returns a promise which will be filled once it receives a confirmation.
             try {
+                remoteTriggerHandler.waitForRemoteTriggerTaskComplete();
                 client.send(request).whenComplete((confirmation, ex) -> {
                     log.info("Received from the central system: " + confirmation.toString());
                     handleResponse(confirmation);

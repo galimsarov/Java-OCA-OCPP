@@ -112,8 +112,6 @@ public class ListenerImpl implements Listener {
                             case "RemoteStartTransaction" ->
                                     coreHandler.setRemoteStartStopStatus(parsedMessage, "start");
                             case "RemoteStopTransaction" -> coreHandler.setRemoteStartStopStatus(parsedMessage, "stop");
-                            case "RemoteTriggerBootNotification" ->
-                                    bootNotification.sendBootNotification(parsedMessage, "remoteTrigger");
                             case "reservation" -> reservationCache.createCache(parsedMessage);
                             case "Reset" -> coreHandler.setResetStatus(parsedMessage);
                             case "transaction1" ->
@@ -122,6 +120,9 @@ public class ListenerImpl implements Listener {
                             // reservation
                             case "ReserveNow" -> reservationHandler.setReservationResult(parsedMessage);
                             case "CancelReservation" -> reservationHandler.setCancelReservationStatus(parsedMessage);
+                            // remote trigger
+                            case "RemoteTriggerBootNotification" ->
+                                    bootNotification.sendBootNotification(parsedMessage, "remoteTrigger");
                         }
                         requestCache.removeFromCache(uuid);
                     }
@@ -131,8 +132,11 @@ public class ListenerImpl implements Listener {
                         case "Authorize" -> authorize.sendAuthorize(parsedMessage);
                         case "DataTransfer" -> dataTransfer.sendDataTransfer(parsedMessage);
                         case "LocalStop" -> stopTransaction.sendLocalStop(parsedMessage);
-                        case "SendHeartbeatToCentralSystem" -> bootNotification.sendTriggerMessageHeartbeat();
                         case "StartTransaction" -> startTransaction.sendStartTransaction(parsedMessage);
+                        // remote trigger
+                        case "SendHeartbeatToCentralSystem" -> bootNotification.sendTriggerMessageHeartbeat();
+                        case "SendMeterValuesToCentralSystem" ->
+                                meterValues.sendTriggerMessageMeterValues(parsedMessage);
                     }
                 }
             } else {

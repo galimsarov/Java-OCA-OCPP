@@ -35,7 +35,7 @@ public class MeterValuesImpl implements MeterValues {
     private final Queues queues;
     private final Sender sender;
     private final Set<Integer> chargingConnectors = new HashSet<>();
-    private MeterValuesRequest cachedMeterValuesRequest = null;
+    private final Map<Integer, MeterValuesRequest> cachedMeterValuesRequestsMap = new HashMap<>();
 
     public MeterValuesImpl(
             BootNotification bootNotification,
@@ -90,33 +90,16 @@ public class MeterValuesImpl implements MeterValues {
         return new Thread(runMeterValues);
     }
 
-    private void sendMeterValues(int connectorId, String meterValuesSampledData, String context, int transactionId) {
-        ClientCoreProfile core = coreHandler.getCore();
-        JSONClient client = bootNotification.getClient();
-        SampledValue[] sampledValues = getSampledValues(meterValuesSampledData, connectorId, context);
-        // Use the feature profile to help create event
-        MeterValuesRequest request = core.createMeterValuesRequest(connectorId, ZonedDateTime.now(), sampledValues);
-        request.setTransactionId(transactionId);
-        if (client == null) {
-            sender.sendRequestToQueue(
-                    queues.getOCPPCache(),
-                    UUID.randomUUID().toString(),
-                    SaveToCache.name(),
-                    request,
-                    "meterValues"
-            );
-        } else {
-            log.info("Ready to send meter values: " + request);
-            // Client returns a promise which will be filled once it receives a confirmation.
-            try {
-                client.send(request).whenComplete((confirmation, ex) ->
-                        log.info("Received from the central system: " + confirmation.toString()));
-            } catch (OccurenceConstraintException | UnsupportedFeatureException ignored) {
-                log.warn("An error occurred while sending or processing meter value request");
-            }
+    private static void sendToCentralSystem(MeterValuesRequest request, JSONClient client) {
+        // TODO Если нужно менять контекст на "Trigger" и дату на текущую, то можно это сделать здесь
+        log.info("Ready to send meter values: " + request);
+        // Client returns a promise which will be filled once it receives a confirmation.
+        try {
+            client.send(request).whenComplete((confirmation, ex) ->
+                    log.info("Received from the central system: " + confirmation.toString()));
+        } catch (OccurenceConstraintException | UnsupportedFeatureException ignored) {
+            log.warn("An error occurred while sending or processing meter value request");
         }
-        cachedMeterValuesRequest = request;
-        remoteTriggerHandler.meterValuesCanBeSent();
     }
 
     private SampledValue[] getSampledValues(String meterValuesSampledData, int connectorId, String context) {
@@ -187,5 +170,45 @@ public class MeterValuesImpl implements MeterValues {
         chargeSessionMap.removeFromChargeSessionMap(connectorId);
         chargingConnectors.remove(connectorId);
         sendMeterValues(connectorId, meterValuesSampledData, "Transaction.End", transactionId);
+    }
+
+    private void sendMeterValues(int connectorId, String meterValuesSampledData, String context, int transactionId) {
+        ClientCoreProfile core = coreHandler.getCore();
+        JSONClient client = bootNotification.getClient();
+        SampledValue[] sampledValues = getSampledValues(meterValuesSampledData, connectorId, context);
+        // Use the feature profile to help create event
+        MeterValuesRequest request = core.createMeterValuesRequest(connectorId, ZonedDateTime.now(), sampledValues);
+        request.setTransactionId(transactionId);
+        if (client == null) {
+            sender.sendRequestToQueue(
+                    queues.getOCPPCache(),
+                    UUID.randomUUID().toString(),
+                    SaveToCache.name(),
+                    request,
+                    "meterValues"
+            );
+        } else {
+            sendToCentralSystem(request, client);
+        }
+        cachedMeterValuesRequestsMap.put(connectorId, request);
+        remoteTriggerHandler.setCachedMeterValuesRequestsMap(cachedMeterValuesRequestsMap);
+    }
+
+    @Override
+    public void sendTriggerMessageMeterValues(List<Object> parsedMessage) {
+        Map<String, Integer> map = (Map<String, Integer>) parsedMessage.get(3);
+        Integer connectorId = map.get("connectorId");
+        if (connectorId != null) {
+            JSONClient client = bootNotification.getClient();
+            if (connectorId == 0) {
+                for (MeterValuesRequest request : cachedMeterValuesRequestsMap.values()) {
+                    sendToCentralSystem(request, client);
+                }
+            } else {
+                MeterValuesRequest request = cachedMeterValuesRequestsMap.get(connectorId);
+                sendToCentralSystem(request, client);
+            }
+        }
+        remoteTriggerHandler.setRemoteTriggerTaskFinished();
     }
 }
