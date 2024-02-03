@@ -196,7 +196,9 @@ public class ListenerImpl implements Listener {
         if ((request.getStatus().equals(Finishing) || request.getStatus().equals(Faulted)) &&
                 !reservationCache.reserved(request.getId())
         ) {
-            chargeSessionMap.setFinishOrFaulted(request.getId());
+            if (chargeSessionMap.getChargeSessionInfo(request.getId()) != null) {
+                chargeSessionMap.setFinishOrFaulted(request.getId());
+            }
             if ((chargeSessionMap.getChargeSessionInfo(request.getId()) != null) &&
                     chargeSessionMap.isRemoteStop(request.getId())
             ) {
@@ -220,7 +222,8 @@ public class ListenerImpl implements Listener {
 
     private void remoteStartForCharging(StatusNotificationInfo request) {
         if (
-                request.getStatus().equals(Charging) && chargeSessionMap.isNotEmpty() &&
+                request.getStatus().equals(Charging) &&
+                        (chargeSessionMap.getChargeSessionInfo(request.getId()) != null) &&
                         chargeSessionMap.isRemoteStart(request.getId()) &&
                         (chargeSessionMap.getChargeSessionInfo(request.getId()).getPreparingTimer() == null) &&
                         !reservationCache.reserved(request.getId())
@@ -230,7 +233,8 @@ public class ListenerImpl implements Listener {
     }
 
     private void tryRemoteStartAndStopPreparingTimer(StatusNotificationInfo request) {
-        if (request.getStatus().equals(Preparing) && chargeSessionMap.isNotEmpty() &&
+        if (request.getStatus().equals(Preparing) &&
+                (chargeSessionMap.getChargeSessionInfo(request.getId()) != null) &&
                 chargeSessionMap.isRemoteStart(request.getId()) &&
                 !reservationCache.reserved(request.getId())
         ) {
