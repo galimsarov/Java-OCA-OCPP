@@ -11,8 +11,12 @@ import pss.mira.orp.JavaOCAOCPP.models.info.ocpp.StatusNotificationInfo;
 import pss.mira.orp.JavaOCAOCPP.models.queues.Queues;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.core.CoreHandler;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.remoteTrigger.RemoteTriggerHandler;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.SaveToCache;
@@ -22,14 +26,21 @@ import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.SaveToCache;
 public class StatusNotificationImpl implements StatusNotification {
     private final BootNotification bootNotification;
     private final CoreHandler coreHandler;
+    private final RemoteTriggerHandler remoteTriggerHandler;
     private final Queues queues;
     private final Sender sender;
+    private final Map<Integer, Request> cachedStatusNotificationRequestsMap = new HashMap<>();
 
     public StatusNotificationImpl(
-            BootNotification bootNotification, CoreHandler coreHandler, Queues queues, Sender sender
+            BootNotification bootNotification,
+            CoreHandler coreHandler,
+            RemoteTriggerHandler remoteTriggerHandler,
+            Queues queues,
+            Sender sender
     ) {
         this.bootNotification = bootNotification;
         this.coreHandler = coreHandler;
+        this.remoteTriggerHandler = remoteTriggerHandler;
         this.queues = queues;
         this.sender = sender;
     }
@@ -53,15 +64,37 @@ public class StatusNotificationImpl implements StatusNotification {
                     "statusNotification"
             );
         } else {
-            log.info("Sent to central system: " + request.toString());
-            // Client returns a promise which will be filled once it receives a confirmation.
-            try {
-                client.send(request).whenComplete((confirmation, ex) -> {
-                    log.info("Received from the central system: " + confirmation.toString());
-                });
-            } catch (OccurenceConstraintException | UnsupportedFeatureException ignored) {
-                log.warn("An error occurred while sending or processing status notification request");
+            sendToCentralSystem(request, client);
+        }
+        cachedStatusNotificationRequestsMap.put(statusNotificationInfo.getId(), request);
+    }
+
+    @Override
+    public void sendTriggerMessageStatusNotification(List<Object> parsedMessage) {
+        Map<String, Integer> map = (Map<String, Integer>) parsedMessage.get(3);
+        Integer connectorId = map.get("connectorId");
+        if (connectorId != null) {
+            JSONClient client = bootNotification.getClient();
+            if (connectorId == 0) {
+                for (Request request : cachedStatusNotificationRequestsMap.values()) {
+                    sendToCentralSystem(request, client);
+                }
+            } else {
+                Request request = cachedStatusNotificationRequestsMap.get(connectorId);
+                sendToCentralSystem(request, client);
             }
+        }
+        remoteTriggerHandler.setRemoteTriggerTaskFinished();
+    }
+
+    private void sendToCentralSystem(Request request, JSONClient client) {
+        log.info("Sent to central system: " + request.toString());
+        // Client returns a promise which will be filled once it receives a confirmation.
+        try {
+            client.send(request).whenComplete((confirmation, ex) ->
+                    log.info("Received from the central system: " + confirmation.toString()));
+        } catch (OccurenceConstraintException | UnsupportedFeatureException ignored) {
+            log.warn("An error occurred while sending or processing meter value request");
         }
     }
 }

@@ -34,4 +34,6 @@ public interface ConnectorsInfoCache {
     String getStatus(int connectorId);
 
     Set<Integer> getConnectorsIds();
+
+    String getEVCCID(int connectorId);
 }

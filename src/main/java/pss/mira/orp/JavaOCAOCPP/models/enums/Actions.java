@@ -20,6 +20,7 @@ public enum Actions {
     SaveToCache,
     SendHeartbeatToCentralSystem,
     SendMeterValuesToCentralSystem,
+    SendStatusNotificationToCentralSystem,
     // ModBus
     ChangeConnectorAvailability,
     ChangeStationAvailability,

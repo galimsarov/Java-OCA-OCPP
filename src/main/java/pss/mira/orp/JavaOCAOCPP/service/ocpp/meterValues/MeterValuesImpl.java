@@ -90,7 +90,7 @@ public class MeterValuesImpl implements MeterValues {
         return new Thread(runMeterValues);
     }
 
-    private static void sendToCentralSystem(MeterValuesRequest request, JSONClient client) {
+    private void sendToCentralSystem(MeterValuesRequest request, JSONClient client) {
         // TODO Если нужно менять контекст на "Trigger" и дату на текущую, то можно это сделать здесь
         log.info("Ready to send meter values: " + request);
         // Client returns a promise which will be filled once it receives a confirmation.

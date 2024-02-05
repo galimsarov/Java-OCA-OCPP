@@ -155,7 +155,8 @@ public class StartTransactionImpl implements StartTransaction {
                                     Map.of("key", "start_date_timeutc", "value",
                                             formatStartStopTransactionDateTimeUTC(new Date())),
                                     Map.of("key", "start_full_stations_consumed_energy", "value",
-                                            String.valueOf(connectorsInfoCache.getFullStationConsumedEnergy(connectorId)))
+                                            String.valueOf(connectorsInfoCache.getFullStationConsumedEnergy(connectorId))),
+                                    Map.of("key", "evccid", "value", connectorsInfoCache.getEVCCID(connectorId))
                             )),
                     transaction1.name()
             );

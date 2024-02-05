@@ -204,4 +204,9 @@ public class ConnectorsInfoCacheImpl implements ConnectorsInfoCache {
     public Set<Integer> getConnectorsIds() {
         return connectorsMap.keySet();
     }
+
+    @Override
+    public String getEVCCID(int connectorId) {
+        return connectorsMap.get(connectorId).get("EVCCID").toString();
+    }
 }

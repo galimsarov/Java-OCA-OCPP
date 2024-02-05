@@ -137,6 +137,8 @@ public class ListenerImpl implements Listener {
                         case "SendHeartbeatToCentralSystem" -> bootNotification.sendTriggerMessageHeartbeat();
                         case "SendMeterValuesToCentralSystem" ->
                                 meterValues.sendTriggerMessageMeterValues(parsedMessage);
+                        case "SendStatusNotificationToCentralSystem" ->
+                                statusNotification.sendTriggerMessageStatusNotification(parsedMessage);
                     }
                 }
             } else {

@@ -65,9 +65,44 @@ public class RemoteTriggerHandlerImpl implements RemoteTriggerHandler {
                         }
                     }
                     case StatusNotification -> {
+                        int connectorId;
+                        if (request.getConnectorId() == null) {
+                            connectorId = 0;
+                        } else {
+                            connectorId = request.getConnectorId();
+                        }
+                        return getStatusNotificationTriggerMessageConfirmation(connectorId);
                     }
                 }
                 return null;
+            }
+
+            // TODO вывести общий метод getTriggerMessageConfirmation()
+            private TriggerMessageConfirmation getStatusNotificationTriggerMessageConfirmation(int connectorId) {
+                Thread sendAndHandleStatusNotificationThread = getSendAndHandleStatusNotificationThread(connectorId);
+                sendAndHandleStatusNotificationThread.start();
+                TriggerMessageConfirmation result = new TriggerMessageConfirmation(Accepted);
+                log.info("Sent to central system: " + result);
+                return result;
+            }
+
+            private Thread getSendAndHandleStatusNotificationThread(int connectorId) {
+                Runnable sendAndHandleStatusNotificationTask = () -> {
+                    remoteTriggerTaskExecuting = true;
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        log.error("Аn error while sending trigger message confirmation");
+                    }
+                    sender.sendRequestToQueue(
+                            queues.getOCPP(),
+                            UUID.randomUUID().toString(),
+                            SendStatusNotificationToCentralSystem.name(),
+                            Map.of("connectorId", connectorId),
+                            SendStatusNotificationToCentralSystem.name()
+                    );
+                };
+                return new Thread(sendAndHandleStatusNotificationTask);
             }
 
             private boolean meterValuesCanBeSent(int connectorId) {
@@ -79,15 +114,15 @@ public class RemoteTriggerHandlerImpl implements RemoteTriggerHandler {
             }
 
             private TriggerMessageConfirmation getMeterValuesTriggerMessageConfirmation(int connectorId) {
-                Thread sendAndHandleMeterValuesConnectorThread = getSendAndHandleMeterValuesThread(connectorId);
-                sendAndHandleMeterValuesConnectorThread.start();
+                Thread sendAndHandleMeterValuesThread = getSendAndHandleMeterValuesThread(connectorId);
+                sendAndHandleMeterValuesThread.start();
                 TriggerMessageConfirmation result = new TriggerMessageConfirmation(Accepted);
                 log.info("Sent to central system: " + result);
                 return result;
             }
 
             private Thread getSendAndHandleMeterValuesThread(int connectorId) {
-                Runnable sendAndHandleMeterValuesConnectorTask = () -> {
+                Runnable sendAndHandleMeterValuesTask = () -> {
                     remoteTriggerTaskExecuting = true;
                     try {
                         Thread.sleep(1000);
@@ -102,7 +137,7 @@ public class RemoteTriggerHandlerImpl implements RemoteTriggerHandler {
                             SendMeterValuesToCentralSystem.name()
                     );
                 };
-                return new Thread(sendAndHandleMeterValuesConnectorTask);
+                return new Thread(sendAndHandleMeterValuesTask);
             }
 
             private TriggerMessageConfirmation getBootNotificationTriggerMessageConfirmation() {
