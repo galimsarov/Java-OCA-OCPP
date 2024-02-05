@@ -239,6 +239,14 @@ public class StopTransactionImpl implements StopTransaction {
         }
     }
 
+    @Override
+    public void sendOtherLocalStop(int connectorId) {
+        List<Object> parsedMessage = List.of(
+                "", "", "", Map.of("connectorId", connectorId, "reason", Other.name())
+        );
+        sendLocalStop(parsedMessage);
+    }
+
     // Steve возвращал null, поэтому idTagInfo собирать не из чего. При необходимости можно предусмотреть
     private void handleResponse(
             String consumer,

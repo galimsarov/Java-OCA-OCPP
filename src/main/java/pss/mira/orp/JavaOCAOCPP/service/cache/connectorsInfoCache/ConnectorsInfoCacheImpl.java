@@ -207,6 +207,10 @@ public class ConnectorsInfoCacheImpl implements ConnectorsInfoCache {
 
     @Override
     public String getEVCCID(int connectorId) {
-        return connectorsMap.get(connectorId).get("EVCCID").toString();
+        try {
+            return connectorsMap.get(connectorId).get("EVCCID").toString();
+        } catch (Exception ignored) {
+            return "";
+        }
     }
 }

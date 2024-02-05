@@ -30,6 +30,8 @@ import static eu.chargetime.ocpp.model.core.ChargePointStatus.*;
 @Component
 @Slf4j
 public class ListenerImpl implements Listener {
+    private boolean localStopReceived = false;
+
     private final Authorize authorize;
     private final BootNotification bootNotification;
     private final ChargeSessionMap chargeSessionMap;
@@ -131,7 +133,11 @@ public class ListenerImpl implements Listener {
                     switch (parsedMessage.get(2).toString()) {
                         case "Authorize" -> authorize.sendAuthorize(parsedMessage);
                         case "DataTransfer" -> dataTransfer.sendDataTransfer(parsedMessage);
-                        case "LocalStop" -> stopTransaction.sendLocalStop(parsedMessage);
+                        case "LocalStop" -> {
+                            localStopReceived = true;
+                            stopTransaction.sendLocalStop(parsedMessage);
+                            localStopReceived = false;
+                        }
                         case "StartTransaction" -> startTransaction.sendStartTransaction(parsedMessage);
                         // remote trigger
                         case "SendHeartbeatToCentralSystem" -> bootNotification.sendTriggerMessageHeartbeat();
@@ -205,6 +211,7 @@ public class ListenerImpl implements Listener {
             if (chargeSessionMap.getChargeSessionInfo(request.getId()) != null) {
                 chargeSessionMap.setFinishOrFaulted(request.getId());
             }
+            setLocalStopTimer(request.getId());
             if ((chargeSessionMap.getChargeSessionInfo(request.getId()) != null) &&
                     chargeSessionMap.isRemoteStop(request.getId())
             ) {
@@ -216,6 +223,33 @@ public class ListenerImpl implements Listener {
                 meterValues.removeFromChargingConnectors(request.getId());
             }
         }
+    }
+
+    private void setLocalStopTimer(int connectorId) {
+        int[] timer = new int[]{20};
+        Runnable timerTask = () -> {
+            while (timer[0] > 0) {
+                if (localStopReceived) {
+                    break;
+                }
+                if (timer[0] % 10 == 0) {
+                    log.warn(timer[0] + " seconds for the connector to receive local stop");
+                }
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    log.error("An error while waiting to receive local stop");
+                }
+                timer[0]--;
+            }
+            if (!localStopReceived) {
+                log.error("The time for the connector to receive local stop has expired. The stop of the transaction " +
+                        "is sent to the central system");
+                stopTransaction.sendOtherLocalStop(connectorId);
+            }
+        };
+        Thread timerThread = new Thread(timerTask);
+        timerThread.start();
     }
 
     private void localStartForCharging(StatusNotificationInfo request) {

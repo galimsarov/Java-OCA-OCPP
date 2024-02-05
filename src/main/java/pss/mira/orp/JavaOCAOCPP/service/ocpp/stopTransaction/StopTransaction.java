@@ -8,4 +8,6 @@ public interface StopTransaction {
     void sendRemoteStop(int connectorId);
 
     void checkTransactionCreation(List<Object> parsedMessage, List<Object> cashedRequest);
+
+    void sendOtherLocalStop(int connectorId);
 }
