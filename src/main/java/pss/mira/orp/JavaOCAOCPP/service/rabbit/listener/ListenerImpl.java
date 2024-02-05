@@ -211,7 +211,18 @@ public class ListenerImpl implements Listener {
             if (chargeSessionMap.getChargeSessionInfo(request.getId()) != null) {
                 chargeSessionMap.setFinishOrFaulted(request.getId());
             }
-            setLocalStopTimer(request.getId());
+            if ((chargeSessionMap.getChargeSessionInfo(request.getId()) != null) &&
+                    !chargeSessionMap.getChargeSessionInfo(request.getId()).isRemoteStop() &&
+                    !chargeSessionMap.getChargeSessionInfo(request.getId()).isLocalStop()
+            ) {
+                if ((chargeSessionMap.getChargeSessionInfo(request.getId()) != null) &&
+                        (chargeSessionMap.getChargeSessionInfo(request.getId()).getTransactionId() != 0)
+                ) {
+                    setLocalStopTimer(request.getId());
+                } else {
+                    chargeSessionMap.removeFromChargeSessionMap(request.getId());
+                }
+            }
             if ((chargeSessionMap.getChargeSessionInfo(request.getId()) != null) &&
                     chargeSessionMap.isRemoteStop(request.getId())
             ) {

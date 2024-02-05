@@ -14,7 +14,6 @@ public class BootNotificationInfo {
     private String addressCP;
     private String chargePointID;
     private String model;
-//    private String version;
 
     public BootNotificationInfo(List<Object> parsedMessage) {
         List<Map<String, Object>> result = getResult(parsedMessage);
@@ -24,10 +23,8 @@ public class BootNotificationInfo {
                 case "adresCS" -> addressCP = map.get("value").toString();
                 case "ChargePointID" -> chargePointID = map.get("value").toString();
                 case "ChargePointModel" -> model = map.get("value").toString();
-//                case "version" -> version = map.get("value").toString();
             }
             if (addressCP != null && chargePointID != null && model != null
-//                    && version != null
             ) {
                 break;
             }
