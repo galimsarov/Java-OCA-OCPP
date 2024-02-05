@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import pss.mira.orp.JavaOCAOCPP.models.queues.Queues;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
+import pss.mira.orp.JavaOCAOCPP.service.cache.configuration.ConfigurationCache;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.core.CoreHandler;
@@ -34,6 +35,7 @@ import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.*;
 public class AuthorizeImpl implements Authorize {
     private List<Map<String, Object>> authList = null;
     private final BootNotification bootNotification;
+    private final ConfigurationCache configurationCache;
     private final ConnectorsInfoCache connectorsInfoCache;
     private final ChargeSessionMap chargeSessionMap;
     private final CoreHandler coreHandler;
@@ -43,6 +45,7 @@ public class AuthorizeImpl implements Authorize {
 
     public AuthorizeImpl(
             BootNotification bootNotification,
+            ConfigurationCache configurationCache,
             ConnectorsInfoCache connectorsInfoCache,
             ChargeSessionMap chargeSessionMap,
             CoreHandler coreHandler,
@@ -51,6 +54,7 @@ public class AuthorizeImpl implements Authorize {
             Sender sender
     ) {
         this.bootNotification = bootNotification;
+        this.configurationCache = configurationCache;
         this.connectorsInfoCache = connectorsInfoCache;
         this.chargeSessionMap = chargeSessionMap;
         this.coreHandler = coreHandler;
@@ -190,8 +194,13 @@ public class AuthorizeImpl implements Authorize {
         result.put("status", authorizeConfirmation.getIdTagInfo().getStatus().name());
         result.put("connectorId", connectorId);
         if (connectorId != -1) {
-            chargeSessionMap.addToChargeSessionMap(connectorId, idTag, false,
-                    connectorsInfoCache.getStatusNotificationRequest(connectorId).getStatus());
+            chargeSessionMap.addToChargeSessionMap(
+                    connectorId,
+                    idTag,
+                    false,
+                    connectorsInfoCache.getStatusNotificationRequest(connectorId).getStatus(),
+                    new int[]{configurationCache.getConnectionTimeOut()}
+            );
         }
         sender.sendRequestToQueue(consumer, requestUuid, "", result, "");
     }

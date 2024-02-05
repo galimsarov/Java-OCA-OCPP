@@ -22,4 +22,6 @@ public interface ConfigurationCache {
     boolean reservationSupported();
 
     void addToCache(List<Map<String, Object>> configurations);
+
+    int getConnectionTimeOut();
 }

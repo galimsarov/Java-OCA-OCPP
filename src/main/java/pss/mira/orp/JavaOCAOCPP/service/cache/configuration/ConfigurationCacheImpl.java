@@ -106,4 +106,13 @@ public class ConfigurationCacheImpl implements ConfigurationCache {
             configurationMap.put(key, map);
         }
     }
+
+    @Override
+    public int getConnectionTimeOut() {
+        try {
+            return Integer.parseInt(configurationMap.get("ConnectionTimeOut").get("value").toString());
+        } catch (Exception ignored) {
+            return 40;
+        }
+    }
 }

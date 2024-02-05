@@ -18,13 +18,13 @@ public class ChargeSessionMapImpl implements ChargeSessionMap {
 
     @Override
     public void addToChargeSessionMap(
-            int connectorId, String idTag, boolean isRemoteStart, ChargePointStatus chargePointStatus
+            int connectorId, String idTag, boolean isRemoteStart, ChargePointStatus chargePointStatus, int[] timer
     ) {
         ChargeSessionInfo chargeSessionInfo = new ChargeSessionInfo();
         chargeSessionInfo.setConnectorId(connectorId);
         chargeSessionInfo.setIdTag(idTag);
         if (isRemoteStart && chargePointStatus.equals(Available)) {
-            chargeSessionInfo.setPreparingTimer(new PreparingTimer());
+            chargeSessionInfo.setPreparingTimer(new PreparingTimer(timer));
         }
         chargeSessionInfo.setRemoteStart(isRemoteStart);
         map.put(connectorId, chargeSessionInfo);
@@ -61,7 +61,7 @@ public class ChargeSessionMapImpl implements ChargeSessionMap {
 
     @Override
     public boolean canSendStartTransaction(int connectorId) {
-        return map.get(connectorId).getPreparingTimer().getTimer() > 0;
+        return map.get(connectorId).getPreparingTimer().getTimer()[0] > 0;
     }
 
     @Override

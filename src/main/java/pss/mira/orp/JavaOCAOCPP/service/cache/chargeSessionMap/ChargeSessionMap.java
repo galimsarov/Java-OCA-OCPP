@@ -5,7 +5,7 @@ import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.chargeSessionInfo
 
 public interface ChargeSessionMap {
     void addToChargeSessionMap(
-            int connectorId, String idTag, boolean isRemoteStart, ChargePointStatus chargePointStatus
+            int connectorId, String idTag, boolean isRemoteStart, ChargePointStatus chargePointStatus, int[] timer
     );
 
     ChargeSessionInfo getChargeSessionInfo(int connectorId);

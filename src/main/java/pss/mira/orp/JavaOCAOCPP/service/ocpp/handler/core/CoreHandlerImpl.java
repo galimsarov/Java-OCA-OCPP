@@ -222,8 +222,11 @@ public class CoreHandlerImpl implements CoreHandler {
                         new RemoteStartTransactionConfirmation(remoteStartStatus);
                 if (remoteStartStatus.equals(RemoteStartStopStatus.Accepted)) {
                     chargeSessionMap.addToChargeSessionMap(
-                            request.getConnectorId(), request.getIdTag(), true,
-                            connectorsInfoCache.getStatusNotificationRequest(request.getConnectorId()).getStatus()
+                            request.getConnectorId(),
+                            request.getIdTag(),
+                            true,
+                            connectorsInfoCache.getStatusNotificationRequest(request.getConnectorId()).getStatus(),
+                            new int[]{configurationCache.getConnectionTimeOut()}
                     );
                 }
                 remoteStartStatus = null;
