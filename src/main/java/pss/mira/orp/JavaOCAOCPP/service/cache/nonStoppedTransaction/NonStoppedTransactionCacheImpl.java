@@ -27,30 +27,18 @@ public class NonStoppedTransactionCacheImpl implements NonStoppedTransactionCach
     }
 
     @Override
-    public Map<String, Object> removeTransaction(int connectorId) {
-        int index = -1;
-        for (int i = 0; i < transactions.size(); i++) {
-            Map<String, Object> transaction = transactions.get(i);
-            if (Integer.parseInt(transaction.get("connector_id").toString()) == connectorId) {
-                index = i;
-                break;
-            }
-        }
-        if (index != -1) {
-            return transactions.remove(index);
-        } else {
-            return null;
-        }
-    }
-
-    @Override
     public List<Map<String, Object>> getTransactionsByConnectorId(int connectorId) {
         List<Map<String, Object>> result = new ArrayList<>();
+        List<Map<String, Object>> newTransactions = new ArrayList<>();
         for (Map<String, Object> transaction : transactions) {
             if (Integer.parseInt(transaction.get("connector_id").toString()) == connectorId) {
                 result.add(transaction);
+            } else {
+                newTransactions.add(transaction);
             }
         }
+        transactions.clear();
+        transactions.addAll(newTransactions);
         return result;
     }
 }

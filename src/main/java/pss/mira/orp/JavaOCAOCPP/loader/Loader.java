@@ -1,4 +1,4 @@
-package pss.mira.orp.JavaOCAOCPP.bootstrap;
+package pss.mira.orp.JavaOCAOCPP.loader;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
@@ -18,12 +18,12 @@ import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.getNonStoppedTransact
 
 @Component
 @Slf4j
-public class OcppLoader implements CommandLineRunner {
+public class Loader implements CommandLineRunner {
     private final BootNotification bootNotification;
     private final Queues queues;
     private final Sender sender;
 
-    public OcppLoader(BootNotification bootNotification, Queues queues, Sender sender) {
+    public Loader(BootNotification bootNotification, Queues queues, Sender sender) {
         this.bootNotification = bootNotification;
         this.queues = queues;
         this.sender = sender;

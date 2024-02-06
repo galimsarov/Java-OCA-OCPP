@@ -8,7 +8,5 @@ public interface NonStoppedTransactionCache {
 
     boolean hasNonStoppedTransactionsOnConnector(int connectorId);
 
-    Map<String, Object> removeTransaction(int connectorId);
-
     List<Map<String, Object>> getTransactionsByConnectorId(int connectorId);
 }

@@ -304,15 +304,18 @@ public class StopTransactionImpl implements StopTransaction {
                 }
             }
             List<Map<String, Object>> transactions = getResult(parsedMessage);
-            Set<Integer> connectorsIds = new HashSet<>();
+            Set<Integer> chargePointLogicConnectorsIds = new HashSet<>();
+            Set<Integer> centralSystemConnectorsIds = new HashSet<>();
             for (Map<String, Object> transaction : transactions) {
                 int connectorId = Integer.parseInt(transaction.get("connector_id").toString());
+                nonStoppedTransactionCache.addToCache(transaction);
                 if (connectorsInfoCache.isCharging(connectorId)) {
-                    nonStoppedTransactionCache.addToCache(transaction);
-                    connectorsIds.add(connectorId);
+                    chargePointLogicConnectorsIds.add(connectorId);
+                } else {
+                    centralSystemConnectorsIds.add(connectorId);
                 }
             }
-            for (Integer connectorId : connectorsIds) {
+            for (Integer connectorId : chargePointLogicConnectorsIds) {
                 sender.sendRequestToQueue(
                         queues.getChargePointLogic(),
                         UUID.randomUUID().toString(),
@@ -320,6 +323,9 @@ public class StopTransactionImpl implements StopTransaction {
                         Map.of("connectorId", connectorId),
                         StopChargeSession.name()
                 );
+            }
+            for (Integer connectorId : centralSystemConnectorsIds) {
+                sendLocalStopWithReason(connectorId, Reboot);
             }
         };
         Thread connectorsInfoThread = new Thread(connectorsInfoTask);

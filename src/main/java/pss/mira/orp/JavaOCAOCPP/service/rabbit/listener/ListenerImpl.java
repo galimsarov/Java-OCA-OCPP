@@ -180,11 +180,21 @@ public class ListenerImpl implements Listener {
                     remoteStartForCharging(request);
                     localStartForCharging(request);
                     removeFromChargingAndStopRemote(request);
+                    sendStopsAfterReboot(request);
                 }
             } catch (Exception e) {
                 log.error("Error when parsing a message from the connectorsInfoOcpp queue");
             }
             chargeSessionMap.deleteNotStartedRemoteTransactions();
+        }
+    }
+
+    private void sendStopsAfterReboot(StatusNotificationInfo request) {
+        if ((chargeSessionMap.getChargeSessionInfo(request.getId()) == null) &&
+                request.getStatus().equals(Finishing) &&
+                nonStoppedTransactionCache.hasNonStoppedTransactionsOnConnector(request.getId())
+        ) {
+            stopTransaction.sendLocalStopWithReason(request.getId(), Reboot);
         }
     }
 
@@ -240,12 +250,6 @@ public class ListenerImpl implements Listener {
                     chargeSessionMap.isLocalStop(request.getId())
             ) {
                 meterValues.removeFromChargingConnectors(request.getId());
-            }
-            if ((chargeSessionMap.getChargeSessionInfo(request.getId()) == null) &&
-                    request.getStatus().equals(Finishing) &&
-                    nonStoppedTransactionCache.hasNonStoppedTransactionsOnConnector(request.getId())
-            ) {
-                stopTransaction.sendLocalStopWithReason(request.getId(), Reboot);
             }
         }
     }
