@@ -12,7 +12,7 @@ import pss.mira.orp.JavaOCAOCPP.models.queues.Queues;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
 import pss.mira.orp.JavaOCAOCPP.service.cache.configuration.ConfigurationCache;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
-import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.client.Client;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handlers.core.CoreHandler;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handlers.remoteTrigger.RemoteTriggerHandler;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
@@ -26,7 +26,7 @@ import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.SaveToCache;
 @Service
 @Slf4j
 public class MeterValuesImpl implements MeterValues {
-    private final BootNotification bootNotification;
+    private final Client client;
     private final ConfigurationCache configurationCache;
     private final ChargeSessionMap chargeSessionMap;
     private final ConnectorsInfoCache connectorsInfoCache;
@@ -38,7 +38,7 @@ public class MeterValuesImpl implements MeterValues {
     private final Map<Integer, MeterValuesRequest> cachedMeterValuesRequestsMap = new HashMap<>();
 
     public MeterValuesImpl(
-            BootNotification bootNotification,
+            Client client,
             ConfigurationCache configurationCache,
             ChargeSessionMap chargeSessionMap,
             ConnectorsInfoCache connectorsInfoCache,
@@ -47,7 +47,7 @@ public class MeterValuesImpl implements MeterValues {
             Queues queues,
             Sender sender
     ) {
-        this.bootNotification = bootNotification;
+        this.client = client;
         this.configurationCache = configurationCache;
         this.chargeSessionMap = chargeSessionMap;
         this.connectorsInfoCache = connectorsInfoCache;
@@ -174,12 +174,11 @@ public class MeterValuesImpl implements MeterValues {
 
     private void sendMeterValues(int connectorId, String meterValuesSampledData, String context, int transactionId) {
         ClientCoreProfile core = coreHandler.getCore();
-        JSONClient client = bootNotification.getClient();
         SampledValue[] sampledValues = getSampledValues(meterValuesSampledData, connectorId, context);
         // Use the feature profile to help create event
         MeterValuesRequest request = core.createMeterValuesRequest(connectorId, ZonedDateTime.now(), sampledValues);
         request.setTransactionId(transactionId);
-        if (client == null) {
+        if (client.getClient() == null) {
             sender.sendRequestToQueue(
                     queues.getOCPPCache(),
                     UUID.randomUUID().toString(),
@@ -188,7 +187,7 @@ public class MeterValuesImpl implements MeterValues {
                     "meterValues"
             );
         } else {
-            sendToCentralSystem(request, client);
+            sendToCentralSystem(request, client.getClient());
         }
         cachedMeterValuesRequestsMap.put(connectorId, request);
         remoteTriggerHandler.setCachedMeterValuesRequestsMap(cachedMeterValuesRequestsMap);
@@ -199,14 +198,13 @@ public class MeterValuesImpl implements MeterValues {
         Map<String, Integer> map = (Map<String, Integer>) parsedMessage.get(3);
         Integer connectorId = map.get("connectorId");
         if (connectorId != null) {
-            JSONClient client = bootNotification.getClient();
             if (connectorId == 0) {
                 for (MeterValuesRequest request : cachedMeterValuesRequestsMap.values()) {
-                    sendToCentralSystem(request, client);
+                    sendToCentralSystem(request, client.getClient());
                 }
             } else {
                 MeterValuesRequest request = cachedMeterValuesRequestsMap.get(connectorId);
-                sendToCentralSystem(request, client);
+                sendToCentralSystem(request, client.getClient());
             }
         }
         remoteTriggerHandler.setRemoteTriggerTaskFinished();

@@ -1,6 +1,5 @@
 package pss.mira.orp.JavaOCAOCPP.service.ocpp.authorize;
 
-import eu.chargetime.ocpp.JSONClient;
 import eu.chargetime.ocpp.OccurenceConstraintException;
 import eu.chargetime.ocpp.UnsupportedFeatureException;
 import eu.chargetime.ocpp.feature.profile.ClientCoreProfile;
@@ -15,7 +14,7 @@ import pss.mira.orp.JavaOCAOCPP.models.queues.Queues;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
 import pss.mira.orp.JavaOCAOCPP.service.cache.configuration.ConfigurationCache;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
-import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.client.Client;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handlers.core.CoreHandler;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handlers.remoteTrigger.RemoteTriggerHandler;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
@@ -34,7 +33,7 @@ import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.*;
 @Slf4j
 public class AuthorizeImpl implements Authorize {
     private List<Map<String, Object>> authList = null;
-    private final BootNotification bootNotification;
+    private final Client client;
     private final ConfigurationCache configurationCache;
     private final ConnectorsInfoCache connectorsInfoCache;
     private final ChargeSessionMap chargeSessionMap;
@@ -44,7 +43,7 @@ public class AuthorizeImpl implements Authorize {
     private final Sender sender;
 
     public AuthorizeImpl(
-            BootNotification bootNotification,
+            Client client,
             ConfigurationCache configurationCache,
             ConnectorsInfoCache connectorsInfoCache,
             ChargeSessionMap chargeSessionMap,
@@ -53,7 +52,7 @@ public class AuthorizeImpl implements Authorize {
             RemoteTriggerHandler remoteTriggerHandler,
             Sender sender
     ) {
-        this.bootNotification = bootNotification;
+        this.client = client;
         this.configurationCache = configurationCache;
         this.connectorsInfoCache = connectorsInfoCache;
         this.chargeSessionMap = chargeSessionMap;
@@ -85,9 +84,8 @@ public class AuthorizeImpl implements Authorize {
 
             }
             ClientCoreProfile core = coreHandler.getCore();
-            JSONClient client = bootNotification.getClient();
 
-            if (client == null) {
+            if (client.getClient() == null) {
                 log.warn("There is no connection to the central system. Auth list is used for authorization");
                 checkAuthWithDB(idTag, consumer, requestUuid, connectorId);
             } else {
@@ -98,7 +96,7 @@ public class AuthorizeImpl implements Authorize {
                 try {
                     remoteTriggerHandler.waitForRemoteTriggerTaskComplete();
                     int finalConnectorId = connectorId;
-                    client.send(request).whenComplete((confirmation, ex) -> {
+                    client.getClient().send(request).whenComplete((confirmation, ex) -> {
                         log.info("Received from the central system: " + confirmation.toString());
                         handleResponse(consumer, requestUuid, confirmation, finalConnectorId, idTag);
                     });

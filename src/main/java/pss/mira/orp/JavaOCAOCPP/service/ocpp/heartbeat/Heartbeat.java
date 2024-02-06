@@ -1,4 +1,4 @@
-package pss.mira.orp.JavaOCAOCPP.service.ocpp.heartBeat;
+package pss.mira.orp.JavaOCAOCPP.service.ocpp.heartbeat;
 
 import eu.chargetime.ocpp.JSONClient;
 import eu.chargetime.ocpp.feature.profile.ClientCoreProfile;

@@ -9,7 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import pss.mira.orp.JavaOCAOCPP.models.info.ocpp.StatusNotificationInfo;
 import pss.mira.orp.JavaOCAOCPP.models.queues.Queues;
-import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.client.Client;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handlers.core.CoreHandler;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handlers.remoteTrigger.RemoteTriggerHandler;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
@@ -24,7 +24,7 @@ import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.SaveToCache;
 @Service
 @Slf4j
 public class StatusNotificationImpl implements StatusNotification {
-    private final BootNotification bootNotification;
+    private final Client client;
     private final CoreHandler coreHandler;
     private final RemoteTriggerHandler remoteTriggerHandler;
     private final Queues queues;
@@ -32,13 +32,13 @@ public class StatusNotificationImpl implements StatusNotification {
     private final Map<Integer, Request> cachedStatusNotificationRequestsMap = new HashMap<>();
 
     public StatusNotificationImpl(
-            BootNotification bootNotification,
+            Client client,
             CoreHandler coreHandler,
             RemoteTriggerHandler remoteTriggerHandler,
             Queues queues,
             Sender sender
     ) {
-        this.bootNotification = bootNotification;
+        this.client = client;
         this.coreHandler = coreHandler;
         this.remoteTriggerHandler = remoteTriggerHandler;
         this.queues = queues;
@@ -48,14 +48,13 @@ public class StatusNotificationImpl implements StatusNotification {
     @Override
     public void sendStatusNotification(StatusNotificationInfo statusNotificationInfo) {
         ClientCoreProfile core = coreHandler.getCore();
-        JSONClient client = bootNotification.getClient();
         // Use the feature profile to help create event
         Request request = core.createStatusNotificationRequest(
                 statusNotificationInfo.getId(),
                 statusNotificationInfo.getErrorCode(),
                 statusNotificationInfo.getStatus()
         );
-        if (client == null) {
+        if (client.getClient() == null) {
             sender.sendRequestToQueue(
                     queues.getOCPPCache(),
                     UUID.randomUUID().toString(),
@@ -64,7 +63,7 @@ public class StatusNotificationImpl implements StatusNotification {
                     "statusNotification"
             );
         } else {
-            sendToCentralSystem(request, client);
+            sendToCentralSystem(request, client.getClient());
         }
         cachedStatusNotificationRequestsMap.put(statusNotificationInfo.getId(), request);
     }
@@ -74,14 +73,13 @@ public class StatusNotificationImpl implements StatusNotification {
         Map<String, Integer> map = (Map<String, Integer>) parsedMessage.get(3);
         Integer connectorId = map.get("connectorId");
         if (connectorId != null) {
-            JSONClient client = bootNotification.getClient();
             if (connectorId == 0) {
                 for (Request request : cachedStatusNotificationRequestsMap.values()) {
-                    sendToCentralSystem(request, client);
+                    sendToCentralSystem(request, client.getClient());
                 }
             } else {
                 Request request = cachedStatusNotificationRequestsMap.get(connectorId);
-                sendToCentralSystem(request, client);
+                sendToCentralSystem(request, client.getClient());
             }
         }
         remoteTriggerHandler.setRemoteTriggerTaskFinished();

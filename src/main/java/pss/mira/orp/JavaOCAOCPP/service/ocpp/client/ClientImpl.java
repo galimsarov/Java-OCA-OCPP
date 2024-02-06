@@ -30,7 +30,7 @@ public class ClientImpl implements Client {
     }
 
     @Override
-    public void createClient(List<Object> parsedMessage, String source) {
+    public void createClient(List<Object> parsedMessage) {
         bootNotificationInfo = new BootNotificationInfo(parsedMessage);
 
         if (bootNotificationInfo.getAddressCP() != null &&

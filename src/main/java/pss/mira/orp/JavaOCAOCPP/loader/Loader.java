@@ -5,7 +5,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 import pss.mira.orp.JavaOCAOCPP.models.enums.Actions;
 import pss.mira.orp.JavaOCAOCPP.models.queues.Queues;
-import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.client.Client;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 
 import java.util.List;
@@ -19,12 +19,12 @@ import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.getNonStoppedTransact
 @Component
 @Slf4j
 public class Loader implements CommandLineRunner {
-    private final BootNotification bootNotification;
+    private final Client client;
     private final Queues queues;
     private final Sender sender;
 
-    public Loader(BootNotification bootNotification, Queues queues, Sender sender) {
-        this.bootNotification = bootNotification;
+    public Loader(Client client, Queues queues, Sender sender) {
+        this.client = client;
         this.queues = queues;
         this.sender = sender;
     }
@@ -75,7 +75,7 @@ public class Loader implements CommandLineRunner {
     private Thread getConnectorsInfoThread() {
         Runnable connectorsInfoTask = () -> {
             while (true) {
-                if (bootNotification.getClient() == null) {
+                if (client.getClient() == null) {
                     try {
                         Thread.sleep(1000);
                     } catch (InterruptedException e) {

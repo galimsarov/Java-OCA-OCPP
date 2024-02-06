@@ -1,6 +1,5 @@
 package pss.mira.orp.JavaOCAOCPP.service.ocpp.dataTransfer;
 
-import eu.chargetime.ocpp.JSONClient;
 import eu.chargetime.ocpp.OccurenceConstraintException;
 import eu.chargetime.ocpp.UnsupportedFeatureException;
 import eu.chargetime.ocpp.feature.profile.ClientCoreProfile;
@@ -9,7 +8,7 @@ import eu.chargetime.ocpp.model.core.DataTransferConfirmation;
 import eu.chargetime.ocpp.model.core.DataTransferRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.client.Client;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handlers.core.CoreHandler;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handlers.remoteTrigger.RemoteTriggerHandler;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
@@ -21,18 +20,18 @@ import java.util.Map;
 @Service
 @Slf4j
 public class DataTransferImpl implements DataTransfer {
-    private final BootNotification bootNotification;
+    private final Client client;
     private final CoreHandler coreHandler;
     private final RemoteTriggerHandler remoteTriggerHandler;
     private final Sender sender;
 
     public DataTransferImpl(
-            BootNotification bootNotification,
+            Client client,
             CoreHandler coreHandler,
             RemoteTriggerHandler remoteTriggerHandler,
             Sender sender
     ) {
-        this.bootNotification = bootNotification;
+        this.client = client;
         this.coreHandler = coreHandler;
         this.remoteTriggerHandler = remoteTriggerHandler;
         this.sender = sender;
@@ -64,9 +63,8 @@ public class DataTransferImpl implements DataTransfer {
             }
 
             ClientCoreProfile core = coreHandler.getCore();
-            JSONClient client = bootNotification.getClient();
 
-            if (client == null) {
+            if (client.getClient() == null) {
                 log.warn("There is no connection to the central system. " +
                         "The data transfer message will be sent after the connection is restored");
                 // TODO предусмотреть кэш для отправки сообщений после появления связи
@@ -83,7 +81,7 @@ public class DataTransferImpl implements DataTransfer {
                 // Client returns a promise which will be filled once it receives a confirmation.
                 try {
                     remoteTriggerHandler.waitForRemoteTriggerTaskComplete();
-                    client.send(request).whenComplete((confirmation, ex) -> {
+                    client.getClient().send(request).whenComplete((confirmation, ex) -> {
                         log.info("Received from the central system: " + confirmation.toString());
                         handleResponse(consumer, requestUuid, confirmation);
                     });

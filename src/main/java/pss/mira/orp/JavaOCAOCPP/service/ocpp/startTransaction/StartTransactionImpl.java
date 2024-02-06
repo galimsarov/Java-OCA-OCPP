@@ -1,6 +1,5 @@
 package pss.mira.orp.JavaOCAOCPP.service.ocpp.startTransaction;
 
-import eu.chargetime.ocpp.JSONClient;
 import eu.chargetime.ocpp.OccurenceConstraintException;
 import eu.chargetime.ocpp.UnsupportedFeatureException;
 import eu.chargetime.ocpp.feature.profile.ClientCoreProfile;
@@ -15,7 +14,7 @@ import pss.mira.orp.JavaOCAOCPP.models.queues.Queues;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.chargeSessionInfo.ChargeSessionInfo;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
-import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.client.Client;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handlers.core.CoreHandler;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handlers.remoteTrigger.RemoteTriggerHandler;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.meterValues.MeterValues;
@@ -32,7 +31,7 @@ import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.*;
 @Service
 @Slf4j
 public class StartTransactionImpl implements StartTransaction {
-    private final BootNotification bootNotification;
+    private final Client client;
     private final ChargeSessionMap chargeSessionMap;
     private final ConnectorsInfoCache connectorsInfoCache;
     private final CoreHandler coreHandler;
@@ -42,7 +41,7 @@ public class StartTransactionImpl implements StartTransaction {
     private final Sender sender;
 
     public StartTransactionImpl(
-            BootNotification bootNotification,
+            Client client,
             ChargeSessionMap chargeSessionMap,
             ConnectorsInfoCache connectorsInfoCache,
             CoreHandler coreHandler,
@@ -51,7 +50,7 @@ public class StartTransactionImpl implements StartTransaction {
             RemoteTriggerHandler remoteTriggerHandler,
             Sender sender
     ) {
-        this.bootNotification = bootNotification;
+        this.client = client;
         this.chargeSessionMap = chargeSessionMap;
         this.connectorsInfoCache = connectorsInfoCache;
         this.coreHandler = coreHandler;
@@ -74,14 +73,13 @@ public class StartTransactionImpl implements StartTransaction {
             String idTag = startTransactionMap.get("idTag").toString();
 
             ClientCoreProfile core = coreHandler.getCore();
-            JSONClient client = bootNotification.getClient();
             // Use the feature profile to help create event
             StartTransactionRequest request = core.createStartTransactionRequest(
                     connectorId, idTag,
                     connectorsInfoCache.getFullStationConsumedEnergy(connectorId),
                     ZonedDateTime.now()
             );
-            if (client == null) {
+            if (client.getClient() == null) {
                 request.setTimestamp(null);
                 sender.sendRequestToQueue(
                         queues.getOCPPCache(),
@@ -95,7 +93,7 @@ public class StartTransactionImpl implements StartTransaction {
                 // Client returns a promise which will be filled once it receives a confirmation.
                 try {
                     remoteTriggerHandler.waitForRemoteTriggerTaskComplete();
-                    client.send(request).whenComplete((confirmation, ex) -> {
+                    client.getClient().send(request).whenComplete((confirmation, ex) -> {
                         log.info("Received from the central system: " + confirmation.toString());
                         handleResponse(consumer, requestUuid, confirmation, connectorId, idTag);
                     });

@@ -6,7 +6,7 @@ import pss.mira.orp.JavaOCAOCPP.models.info.ocpp.BootNotificationInfo;
 import java.util.List;
 
 public interface Client {
-    void createClient(List<Object> parsedMessage, String source);
+    void createClient(List<Object> parsedMessage);
 
     BootNotificationInfo getBootNotificationInfo();
 

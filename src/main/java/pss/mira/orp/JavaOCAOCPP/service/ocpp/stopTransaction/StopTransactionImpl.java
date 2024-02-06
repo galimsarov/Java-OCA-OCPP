@@ -1,6 +1,5 @@
 package pss.mira.orp.JavaOCAOCPP.service.ocpp.stopTransaction;
 
-import eu.chargetime.ocpp.JSONClient;
 import eu.chargetime.ocpp.OccurenceConstraintException;
 import eu.chargetime.ocpp.UnsupportedFeatureException;
 import eu.chargetime.ocpp.feature.profile.ClientCoreProfile;
@@ -14,7 +13,7 @@ import pss.mira.orp.JavaOCAOCPP.models.queues.Queues;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
 import pss.mira.orp.JavaOCAOCPP.service.cache.nonStoppedTransaction.NonStoppedTransactionCache;
-import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.client.Client;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handlers.core.CoreHandler;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handlers.remoteTrigger.RemoteTriggerHandler;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.meterValues.MeterValues;
@@ -31,7 +30,7 @@ import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.*;
 @Service
 @Slf4j
 public class StopTransactionImpl implements StopTransaction {
-    private final BootNotification bootNotification;
+    private final Client client;
     private final ChargeSessionMap chargeSessionMap;
     private final ConnectorsInfoCache connectorsInfoCache;
     private final CoreHandler coreHandler;
@@ -43,7 +42,7 @@ public class StopTransactionImpl implements StopTransaction {
     private final Map<String, Integer> processedLocalRequests = new HashMap<>();
 
     public StopTransactionImpl(
-            BootNotification bootNotification,
+            Client client,
             ChargeSessionMap chargeSessionMap,
             ConnectorsInfoCache connectorsInfoCache,
             CoreHandler coreHandler,
@@ -53,7 +52,7 @@ public class StopTransactionImpl implements StopTransaction {
             RemoteTriggerHandler remoteTriggerHandler,
             Sender sender
     ) {
-        this.bootNotification = bootNotification;
+        this.client = client;
         this.chargeSessionMap = chargeSessionMap;
         this.connectorsInfoCache = connectorsInfoCache;
         this.coreHandler = coreHandler;
@@ -115,7 +114,6 @@ public class StopTransactionImpl implements StopTransaction {
     @Override
     public void sendRemoteStop(int connectorId) {
         ClientCoreProfile core = coreHandler.getCore();
-        JSONClient client = bootNotification.getClient();
         // Use the feature profile to help create event
         StopTransactionRequest request = core.createStopTransactionRequest(
                 connectorsInfoCache.getFullStationConsumedEnergy(connectorId), ZonedDateTime.now(),
@@ -125,7 +123,7 @@ public class StopTransactionImpl implements StopTransaction {
         int startFullStationConsumedEnergy = chargeSessionMap.getStartFullStationConsumedEnergy(connectorId);
         int transactionId = chargeSessionMap.getChargeSessionInfo(connectorId).getTransactionId();
 
-        if (client == null) {
+        if (client.getClient() == null) {
             sender.sendRequestToQueue(
                     queues.getOCPPCache(),
                     UUID.randomUUID().toString(),
@@ -138,7 +136,7 @@ public class StopTransactionImpl implements StopTransaction {
             try {
                 remoteTriggerHandler.waitForRemoteTriggerTaskComplete();
                 log.info("Sent to central system: " + request);
-                client.send(request).whenComplete((confirmation, ex) -> {
+                client.getClient().send(request).whenComplete((confirmation, ex) -> {
                     log.info("Received from the central system: " + confirmation);
                     handleResponse(
                             "",
@@ -167,7 +165,6 @@ public class StopTransactionImpl implements StopTransaction {
                     .orElse(0);
             if ((connectorId != 0) && (chargeSessionMap.getChargeSessionInfo(connectorId) != null)) {
                 ClientCoreProfile core = coreHandler.getCore();
-                JSONClient client = bootNotification.getClient();
                 // Use the feature profile to help create event
                 StopTransactionRequest request = core.createStopTransactionRequest(
                         connectorsInfoCache.getFullStationConsumedEnergy(connectorId), ZonedDateTime.now(),
@@ -175,7 +172,7 @@ public class StopTransactionImpl implements StopTransaction {
                 );
                 request.setReason(DeAuthorized);
 
-                if (client == null) {
+                if (client.getClient() == null) {
                     sender.sendRequestToQueue(
                             queues.getOCPPCache(),
                             UUID.randomUUID().toString(),
@@ -188,7 +185,7 @@ public class StopTransactionImpl implements StopTransaction {
                     try {
                         remoteTriggerHandler.waitForRemoteTriggerTaskComplete();
                         log.info("Sent to central system: " + request);
-                        client.send(request).whenComplete((confirmation, ex) -> {
+                        client.getClient().send(request).whenComplete((confirmation, ex) -> {
                             log.info("Received from the central system: " + confirmation);
                             sender.sendRequestToQueue(
                                     queues.getChargePointLogic(),
@@ -251,7 +248,6 @@ public class StopTransactionImpl implements StopTransaction {
             String requestUuid
     ) {
         ClientCoreProfile core = coreHandler.getCore();
-        JSONClient client = bootNotification.getClient();
         // Use the feature profile to help create event
         StopTransactionRequest request = core.createStopTransactionRequest(
                 connectorsInfoCache.getFullStationConsumedEnergy(connectorId), ZonedDateTime.now(),
@@ -259,7 +255,7 @@ public class StopTransactionImpl implements StopTransaction {
         );
         request.setReason(getReasonFromEnum(reason));
 
-        if (client == null) {
+        if (client.getClient() == null) {
             sender.sendRequestToQueue(
                     queues.getOCPPCache(),
                     UUID.randomUUID().toString(),
@@ -272,7 +268,7 @@ public class StopTransactionImpl implements StopTransaction {
             try {
                 remoteTriggerHandler.waitForRemoteTriggerTaskComplete();
                 log.info("Sent to central system: " + request);
-                client.send(request).whenComplete((confirmation, ex) -> {
+                client.getClient().send(request).whenComplete((confirmation, ex) -> {
                     log.info("Received from the central system: " + confirmation);
                     handleResponse(
                             consumer,

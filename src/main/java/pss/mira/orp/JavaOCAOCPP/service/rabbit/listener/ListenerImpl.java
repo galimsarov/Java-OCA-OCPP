@@ -14,10 +14,11 @@ import pss.mira.orp.JavaOCAOCPP.service.cache.request.RequestCache;
 import pss.mira.orp.JavaOCAOCPP.service.cache.reservation.ReservationCache;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.authorize.Authorize;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.client.Client;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.dataTransfer.DataTransfer;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handlers.core.CoreHandler;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handlers.reservation.ReservationHandler;
-import pss.mira.orp.JavaOCAOCPP.service.ocpp.heartBeat.Heartbeat;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.heartbeat.Heartbeat;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.meterValues.MeterValues;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.startTransaction.StartTransaction;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.statusNotification.StatusNotification;
@@ -39,6 +40,7 @@ public class ListenerImpl implements Listener {
     private final Authorize authorize;
     private final BootNotification bootNotification;
     private final ChargeSessionMap chargeSessionMap;
+    private final Client client;
     private final ConfigurationCache configurationCache;
     private final ConnectorsInfoCache connectorsInfoCache;
     private final CoreHandler coreHandler;
@@ -58,6 +60,7 @@ public class ListenerImpl implements Listener {
             Authorize authorize,
             BootNotification bootNotification,
             ChargeSessionMap chargeSessionMap,
+            Client client,
             ConfigurationCache configurationCache,
             ConnectorsInfoCache connectorsInfoCache,
             CoreHandler coreHandler,
@@ -75,6 +78,7 @@ public class ListenerImpl implements Listener {
         this.authorize = authorize;
         this.bootNotification = bootNotification;
         this.chargeSessionMap = chargeSessionMap;
+        this.client = client;
         this.configurationCache = configurationCache;
         this.connectorsInfoCache = connectorsInfoCache;
         this.coreHandler = coreHandler;
@@ -108,8 +112,8 @@ public class ListenerImpl implements Listener {
                             case "auth_list" -> authorize.setAuthMap(parsedMessage);
                             case "Authorize" -> coreHandler.setAuthorizeConfirmation(parsedMessage);
                             case "BootNotification" -> {
-
-                                bootNotification.sendBootNotification(parsedMessage, "bootNotification");
+                                client.createClient(parsedMessage);
+                                bootNotification.sendBootNotification("bootNotification");
                             }
                             case "changeConfiguration" -> coreHandler.setChangeConfigurationStatus(parsedMessage);
                             case "ChangeConnectorAvailability" ->
@@ -139,7 +143,7 @@ public class ListenerImpl implements Listener {
                             case "CancelReservation" -> reservationHandler.setCancelReservationStatus(parsedMessage);
                             // remote trigger
                             case "RemoteTriggerBootNotification" ->
-                                    bootNotification.sendBootNotification(parsedMessage, "remoteTrigger");
+                                    bootNotification.sendBootNotification("remoteTrigger");
                         }
                         requestCache.removeFromCache(uuid);
                     }

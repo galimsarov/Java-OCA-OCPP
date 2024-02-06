@@ -13,7 +13,7 @@ import pss.mira.orp.JavaOCAOCPP.models.info.ocpp.BootNotificationInfo;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.client.Client;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handlers.core.CoreHandler;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handlers.remoteTrigger.RemoteTriggerHandler;
-import pss.mira.orp.JavaOCAOCPP.service.ocpp.heartBeat.Heartbeat;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.heartbeat.Heartbeat;
 import pss.mira.orp.JavaOCAOCPP.service.pc.TimeSetter;
 
 import static eu.chargetime.ocpp.model.core.RegistrationStatus.Accepted;
@@ -49,26 +49,32 @@ public class BootNotificationImpl implements BootNotification {
         Runnable clientTask = () -> {
             while (true) {
                 if (client.getClient() == null) {
-
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        log.error("Аn error while waiting for connection");
+                    }
+                } else {
+                    break;
                 }
             }
-        };
-
-
-        // Use the feature profile to help create event
-        BootNotificationRequest request = getBootNotificationRequest(
-                coreHandler.getCore(), client.getBootNotificationInfo()
-        );
-        log.info("Sent to central system: " + request);
-        // Client returns a promise which will be filled once it receives a confirmation.
-        try {
-            client.getClient().send(request).whenComplete((confirmation, ex) -> {
+            // Use the feature profile to help create event
+            BootNotificationRequest request = getBootNotificationRequest(
+                    coreHandler.getCore(), client.getBootNotificationInfo()
+            );
+            log.info("Sent to central system: " + request);
+            // Client returns a promise which will be filled once it receives a confirmation.
+            try {
+                client.getClient().send(request).whenComplete((confirmation, ex) -> {
                     log.info("Received from the central system: " + confirmation.toString());
                     handleResponse(confirmation, source);
                 });
-        } catch (OccurenceConstraintException | UnsupportedFeatureException e) {
-            log.error("Аn error occurred while trying to send a boot notification");
-        }
+            } catch (OccurenceConstraintException | UnsupportedFeatureException e) {
+                log.error("Аn error occurred while trying to send a boot notification");
+            }
+        };
+        Thread clientThread = new Thread(clientTask);
+        clientThread.start();
     }
 
     private BootNotificationRequest getBootNotificationRequest(
