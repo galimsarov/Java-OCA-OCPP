@@ -14,6 +14,7 @@ import java.util.UUID;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.*;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.*;
 import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.getDBTablesGetRequest;
+import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.getNonStoppedTransactions;
 
 @Component
 @Slf4j
@@ -60,6 +61,14 @@ public class OcppLoader implements CommandLineRunner {
                 Get.name(),
                 getDBTablesGetRequest(List.of(configuration.name())),
                 GetConfiguration.name()
+        );
+
+        sender.sendRequestToQueue(
+                queues.getDateBase(),
+                UUID.randomUUID().toString(),
+                Get.name(),
+                getNonStoppedTransactions(),
+                GetNonStoppedTransactions.name()
         );
     }
 

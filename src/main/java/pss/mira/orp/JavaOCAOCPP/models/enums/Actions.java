@@ -25,5 +25,6 @@ public enum Actions {
     ChangeConnectorAvailability,
     ChangeStationAvailability,
     GetConfiguration,
-    GetConnectorsInfo
+    GetConnectorsInfo,
+    GetNonStoppedTransactions
 }

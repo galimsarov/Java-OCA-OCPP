@@ -9,6 +9,7 @@ import pss.mira.orp.JavaOCAOCPP.models.info.ocpp.StatusNotificationInfo;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
 import pss.mira.orp.JavaOCAOCPP.service.cache.configuration.ConfigurationCache;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
+import pss.mira.orp.JavaOCAOCPP.service.cache.nonStoppedTransaction.NonStoppedTransactionCache;
 import pss.mira.orp.JavaOCAOCPP.service.cache.request.RequestCache;
 import pss.mira.orp.JavaOCAOCPP.service.cache.reservation.ReservationCache;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.authorize.Authorize;
@@ -25,6 +26,8 @@ import java.util.List;
 import java.util.Map;
 
 import static eu.chargetime.ocpp.model.core.ChargePointStatus.*;
+import static eu.chargetime.ocpp.model.core.Reason.Other;
+import static eu.chargetime.ocpp.model.core.Reason.Reboot;
 
 @EnableRabbit
 @Component
@@ -40,6 +43,7 @@ public class ListenerImpl implements Listener {
     private final DataTransfer dataTransfer;
     private final CoreHandler coreHandler;
     private final MeterValues meterValues;
+    private final NonStoppedTransactionCache nonStoppedTransactionCache;
     private final RequestCache requestCache;
     private final ReservationCache reservationCache;
     private final ReservationHandler reservationHandler;
@@ -57,6 +61,7 @@ public class ListenerImpl implements Listener {
             DataTransfer dataTransfer,
             CoreHandler coreHandler,
             MeterValues meterValues,
+            NonStoppedTransactionCache nonStoppedTransactionCache,
             ReservationCache reservationCache,
             RequestCache requestCache,
             ReservationHandler reservationHandler,
@@ -72,6 +77,7 @@ public class ListenerImpl implements Listener {
         this.dataTransfer = dataTransfer;
         this.coreHandler = coreHandler;
         this.meterValues = meterValues;
+        this.nonStoppedTransactionCache = nonStoppedTransactionCache;
         this.reservationCache = reservationCache;
         this.requestCache = requestCache;
         this.reservationHandler = reservationHandler;
@@ -111,6 +117,8 @@ public class ListenerImpl implements Listener {
                                     statusNotification.sendStatusNotification(request);
                                 }
                             }
+                            case "GetNonStoppedTransactions" ->
+                                    stopTransaction.checkTransactionsAfterReboot(parsedMessage);
                             case "RemoteStartTransaction" ->
                                     coreHandler.setRemoteStartStopStatus(parsedMessage, "start");
                             case "RemoteStopTransaction" -> coreHandler.setRemoteStartStopStatus(parsedMessage, "stop");
@@ -233,6 +241,12 @@ public class ListenerImpl implements Listener {
             ) {
                 meterValues.removeFromChargingConnectors(request.getId());
             }
+            if ((chargeSessionMap.getChargeSessionInfo(request.getId()) == null) &&
+                    request.getStatus().equals(Finishing) &&
+                    nonStoppedTransactionCache.hasNonStoppedTransactionsOnConnector(request.getId())
+            ) {
+                stopTransaction.sendLocalStopWithReason(request.getId(), Reboot);
+            }
         }
     }
 
@@ -256,7 +270,7 @@ public class ListenerImpl implements Listener {
             if (!localStopReceived) {
                 log.error("The time for the connector to receive local stop has expired. The stop of the transaction " +
                         "is sent to the central system");
-                stopTransaction.sendOtherLocalStop(connectorId);
+                stopTransaction.sendLocalStopWithReason(connectorId, Other);
             }
         };
         Thread timerThread = new Thread(timerTask);

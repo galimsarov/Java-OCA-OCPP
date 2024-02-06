@@ -1,5 +1,7 @@
 package pss.mira.orp.JavaOCAOCPP.service.ocpp.stopTransaction;
 
+import eu.chargetime.ocpp.model.core.Reason;
+
 import java.util.List;
 
 public interface StopTransaction {
@@ -9,5 +11,7 @@ public interface StopTransaction {
 
     void checkTransactionCreation(List<Object> parsedMessage, List<Object> cashedRequest);
 
-    void sendOtherLocalStop(int connectorId);
+    void sendLocalStopWithReason(int connectorId, Reason reason);
+
+    void checkTransactionsAfterReboot(List<Object> parsedMessage);
 }

@@ -13,6 +13,7 @@ import pss.mira.orp.JavaOCAOCPP.models.info.rabbit.DBTablesCreateInfo;
 import pss.mira.orp.JavaOCAOCPP.models.queues.Queues;
 import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
+import pss.mira.orp.JavaOCAOCPP.service.cache.nonStoppedTransaction.NonStoppedTransactionCache;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.core.CoreHandler;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.remoteTrigger.RemoteTriggerHandler;
@@ -25,8 +26,7 @@ import java.util.*;
 import static eu.chargetime.ocpp.model.core.Reason.*;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.*;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.DBKeys.transaction1;
-import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.formatStartStopTransactionDateTime;
-import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.formatStartStopTransactionDateTimeUTC;
+import static pss.mira.orp.JavaOCAOCPP.service.utils.Utils.*;
 
 @Service
 @Slf4j
@@ -36,6 +36,7 @@ public class StopTransactionImpl implements StopTransaction {
     private final ConnectorsInfoCache connectorsInfoCache;
     private final CoreHandler coreHandler;
     private final MeterValues meterValues;
+    private final NonStoppedTransactionCache nonStoppedTransactionCache;
     private final Queues queues;
     private final RemoteTriggerHandler remoteTriggerHandler;
     private final Sender sender;
@@ -47,6 +48,7 @@ public class StopTransactionImpl implements StopTransaction {
             ConnectorsInfoCache connectorsInfoCache,
             CoreHandler coreHandler,
             MeterValues meterValues,
+            NonStoppedTransactionCache nonStoppedTransactionCache,
             Queues queues,
             RemoteTriggerHandler remoteTriggerHandler,
             Sender sender
@@ -56,6 +58,7 @@ public class StopTransactionImpl implements StopTransaction {
         this.connectorsInfoCache = connectorsInfoCache;
         this.coreHandler = coreHandler;
         this.meterValues = meterValues;
+        this.nonStoppedTransactionCache = nonStoppedTransactionCache;
         this.queues = queues;
         this.remoteTriggerHandler = remoteTriggerHandler;
         this.sender = sender;
@@ -88,43 +91,9 @@ public class StopTransactionImpl implements StopTransaction {
                             break;
                         }
                     }
-                    ClientCoreProfile core = coreHandler.getCore();
-                    JSONClient client = bootNotification.getClient();
-                    // Use the feature profile to help create event
-                    StopTransactionRequest request = core.createStopTransactionRequest(
-                            connectorsInfoCache.getFullStationConsumedEnergy(connectorId), ZonedDateTime.now(),
-                            transactionId
+                    sendRequestToCentralSystem(
+                            transactionId, startFullStationConsumedEnergy, connectorId, reason, consumer, requestUuid
                     );
-                    request.setReason(getReasonFromEnum(reason));
-
-                    if (client == null) {
-                        sender.sendRequestToQueue(
-                                queues.getOCPPCache(),
-                                UUID.randomUUID().toString(),
-                                SaveToCache.name(),
-                                request,
-                                "stopTransaction"
-                        );
-                    } else {
-                        // Client returns a promise which will be filled once it receives a confirmation.
-                        try {
-                            remoteTriggerHandler.waitForRemoteTriggerTaskComplete();
-                            log.info("Sent to central system: " + request);
-                            client.send(request).whenComplete((confirmation, ex) -> {
-                                log.info("Received from the central system: " + confirmation);
-                                handleResponse(
-                                        consumer,
-                                        requestUuid,
-                                        connectorId,
-                                        reason,
-                                        startFullStationConsumedEnergy,
-                                        transactionId
-                                );
-                            });
-                        } catch (OccurenceConstraintException | UnsupportedFeatureException ignored) {
-                            log.warn("An error occurred while sending or processing stop transaction request");
-                        }
-                    }
                 } catch (Exception ignored) {
                     log.error("An error occurred while receiving stop transaction data from the message");
                 }
@@ -240,11 +209,121 @@ public class StopTransactionImpl implements StopTransaction {
     }
 
     @Override
-    public void sendOtherLocalStop(int connectorId) {
+    public void sendLocalStopWithReason(int connectorId, Reason reason) {
         List<Object> parsedMessage = List.of(
-                "", "", "", Map.of("connectorId", connectorId, "reason", Other.name())
+                "", "", "", Map.of("connectorId", connectorId, "reason", reason.name())
         );
-        sendLocalStop(parsedMessage);
+        if (reason.equals(Reboot)) {
+            for (Map<String, Object> transaction : nonStoppedTransactionCache.getTransactionsByConnectorId(connectorId)) {
+                int transactionId = Integer.parseInt(transaction.get("transaction_id").toString());
+                int startFullStationConsumedEnergy =
+                        (int) Double.parseDouble(transaction.get("start_full_stations_consumed_energy").toString());
+                sendRebootStop(parsedMessage, transactionId, startFullStationConsumedEnergy);
+            }
+        } else {
+            sendLocalStop(parsedMessage);
+        }
+    }
+
+    private void sendRebootStop(List<Object> parsedMessage, int transactionId, int startFullStationConsumedEnergy) {
+        String consumer = parsedMessage.get(0).toString();
+        String requestUuid = parsedMessage.get(1).toString();
+
+        try {
+            Map<String, Object> stopTransactionMap = (Map<String, Object>) parsedMessage.get(3);
+            int connectorId = Integer.parseInt(stopTransactionMap.get("connectorId").toString());
+            String reason = stopTransactionMap.get("reason").toString();
+
+            sendRequestToCentralSystem(
+                    transactionId, startFullStationConsumedEnergy, connectorId, reason, consumer, requestUuid
+            );
+        } catch (Exception ignored) {
+            log.error("An error occurred while receiving stop transaction data from the message");
+        }
+    }
+
+    private void sendRequestToCentralSystem(
+            int transactionId,
+            int startFullStationConsumedEnergy,
+            int connectorId,
+            String reason,
+            String consumer,
+            String requestUuid
+    ) {
+        ClientCoreProfile core = coreHandler.getCore();
+        JSONClient client = bootNotification.getClient();
+        // Use the feature profile to help create event
+        StopTransactionRequest request = core.createStopTransactionRequest(
+                connectorsInfoCache.getFullStationConsumedEnergy(connectorId), ZonedDateTime.now(),
+                transactionId
+        );
+        request.setReason(getReasonFromEnum(reason));
+
+        if (client == null) {
+            sender.sendRequestToQueue(
+                    queues.getOCPPCache(),
+                    UUID.randomUUID().toString(),
+                    SaveToCache.name(),
+                    request,
+                    "stopTransaction"
+            );
+        } else {
+            // Client returns a promise which will be filled once it receives a confirmation.
+            try {
+                remoteTriggerHandler.waitForRemoteTriggerTaskComplete();
+                log.info("Sent to central system: " + request);
+                client.send(request).whenComplete((confirmation, ex) -> {
+                    log.info("Received from the central system: " + confirmation);
+                    handleResponse(
+                            consumer,
+                            requestUuid,
+                            connectorId,
+                            reason,
+                            startFullStationConsumedEnergy,
+                            transactionId
+                    );
+                });
+            } catch (OccurenceConstraintException | UnsupportedFeatureException ignored) {
+                log.warn("An error occurred while sending or processing stop transaction request");
+            }
+        }
+    }
+
+    @Override
+    public void checkTransactionsAfterReboot(List<Object> parsedMessage) {
+        Runnable connectorsInfoTask = () -> {
+            while (true) {
+                if (connectorsInfoCache.isEmpty()) {
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        log.error("Аn error while waiting for connectors info");
+                    }
+                } else {
+                    break;
+                }
+            }
+            List<Map<String, Object>> transactions = getResult(parsedMessage);
+            Set<Integer> connectorsIds = new HashSet<>();
+            for (Map<String, Object> transaction : transactions) {
+                int connectorId = Integer.parseInt(transaction.get("connector_id").toString());
+                if (connectorsInfoCache.isCharging(connectorId)) {
+                    nonStoppedTransactionCache.addToCache(transaction);
+                    connectorsIds.add(connectorId);
+                }
+            }
+            for (Integer connectorId : connectorsIds) {
+                sender.sendRequestToQueue(
+                        queues.getChargePointLogic(),
+                        UUID.randomUUID().toString(),
+                        StopChargeSession.name(),
+                        Map.of("connectorId", connectorId),
+                        StopChargeSession.name()
+                );
+            }
+        };
+        Thread connectorsInfoThread = new Thread(connectorsInfoTask);
+        connectorsInfoThread.start();
     }
 
     // Steve возвращал null, поэтому idTagInfo собирать не из чего. При необходимости можно предусмотреть

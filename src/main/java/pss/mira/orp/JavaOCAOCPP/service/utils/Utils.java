@@ -1,6 +1,9 @@
 package pss.mira.orp.JavaOCAOCPP.service.utils;
 
 import eu.chargetime.ocpp.model.core.IdTagInfo;
+import pss.mira.orp.JavaOCAOCPP.models.info.rabbit.DBTablesGetFilteredInfo.DBTablesGetFilteredInfo;
+import pss.mira.orp.JavaOCAOCPP.models.info.rabbit.DBTablesGetFilteredInfo.Params;
+import pss.mira.orp.JavaOCAOCPP.models.info.rabbit.DBTablesGetFilteredInfo.Search;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -34,6 +37,13 @@ public class Utils {
             tableMap.put("nameTable", tableName);
             tables.add(tableMap);
         }
+        return Map.of("tables", tables);
+    }
+
+    public static Map<String, List<DBTablesGetFilteredInfo>> getNonStoppedTransactions() {
+        List<DBTablesGetFilteredInfo> tables = List.of(
+                new DBTablesGetFilteredInfo(
+                        "transaction1", new Params(List.of(new Search("stop_date_time", "null")))));
         return Map.of("tables", tables);
     }
 
