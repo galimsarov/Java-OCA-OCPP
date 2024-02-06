@@ -1,4 +1,4 @@
-package pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.core;
+package pss.mira.orp.JavaOCAOCPP.service.ocpp.handlers.core;
 
 import eu.chargetime.ocpp.feature.profile.ClientCoreEventHandler;
 import eu.chargetime.ocpp.feature.profile.ClientCoreProfile;
@@ -21,6 +21,8 @@ import java.util.*;
 import static eu.chargetime.ocpp.model.core.AuthorizationStatus.Accepted;
 import static eu.chargetime.ocpp.model.core.AuthorizationStatus.Invalid;
 import static eu.chargetime.ocpp.model.core.ConfigurationStatus.NotSupported;
+import static eu.chargetime.ocpp.model.core.DataTransferStatus.UnknownMessageId;
+import static eu.chargetime.ocpp.model.core.DataTransferStatus.UnknownVendorId;
 import static eu.chargetime.ocpp.model.core.RemoteStartStopStatus.Rejected;
 import static eu.chargetime.ocpp.model.core.ResetType.Soft;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.*;
@@ -42,6 +44,7 @@ public class CoreHandlerImpl implements CoreHandler {
     private RemoteStartStopStatus remoteStopStatus = null;
     private ResetStatus resetStatus = null;
     private UnlockStatus unlockConnectorStatus = null;
+    private DataTransferStatus dataTransferStatus = null;
     private final Set<String> sentUUIDs = new HashSet<>();
     private final Map<String, AvailabilityStatus> receivedUUIDs = new HashMap<>();
 
@@ -192,7 +195,38 @@ public class CoreHandlerImpl implements CoreHandler {
             @Override
             public DataTransferConfirmation handleDataTransferRequest(DataTransferRequest request) {
                 log.info("Received from the central system: " + request.toString());
-                return null; // returning null means unsupported feature
+                if (request.getVendorId().equals("pss")) {
+                    if (!request.getMessageId().equals("setKwhLimit") &&
+                            !request.getMessageId().equals("setPercentLimit")
+                    ) {
+                        return new DataTransferConfirmation(UnknownMessageId);
+                    } else {
+                        sender.sendRequestToQueue(
+                                queues.getModBus(),
+                                UUID.randomUUID().toString(),
+                                DataTransfer.name(),
+                                request,
+                                DataTransfer.name()
+                        );
+                        while (true) {
+                            if (dataTransferStatus == null) {
+                                try {
+                                    Thread.sleep(1000);
+                                } catch (InterruptedException e) {
+                                    log.error("Аn error while waiting for a data transfer response");
+                                }
+                            } else {
+                                DataTransferConfirmation result =
+                                        new DataTransferConfirmation(dataTransferStatus);
+                                log.info("Send to the central system: " + result);
+                                dataTransferStatus = null;
+                                return result;
+                            }
+                        }
+                    }
+                } else {
+                    return new DataTransferConfirmation(UnknownVendorId);
+                }
             }
 
             /**
@@ -550,5 +584,17 @@ public class CoreHandlerImpl implements CoreHandler {
             log.error("An error occurred while receiving availabilityStatus from the message");
             receivedUUIDs.put("", AvailabilityStatus.Rejected);
         }
+    }
+
+    @Override
+    public void setDataTransferStatus(List<Object> parsedMessage) {
+        Map<String, String> dataTransferStatusMap = (Map<String, String>) parsedMessage.get(2);
+        for (DataTransferStatus status : DataTransferStatus.values()) {
+            if (dataTransferStatusMap.get("status").equals(status.name())) {
+                dataTransferStatus = status;
+                return;
+            }
+        }
+        dataTransferStatus = DataTransferStatus.Rejected;
     }
 }

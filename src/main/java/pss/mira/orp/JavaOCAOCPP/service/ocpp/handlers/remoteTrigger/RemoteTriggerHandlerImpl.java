@@ -1,4 +1,4 @@
-package pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.remoteTrigger;
+package pss.mira.orp.JavaOCAOCPP.service.ocpp.handlers.remoteTrigger;
 
 import eu.chargetime.ocpp.feature.profile.ClientRemoteTriggerEventHandler;
 import eu.chargetime.ocpp.feature.profile.ClientRemoteTriggerProfile;

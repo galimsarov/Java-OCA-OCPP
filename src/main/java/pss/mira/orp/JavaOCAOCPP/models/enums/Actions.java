@@ -7,6 +7,8 @@ public enum Actions {
     Change,
     Delete,
     Get,
+    GetConfiguration,
+    GetNonStoppedTransactions,
     RemoteTriggerBootNotification,
     ReserveNow,
     // mainChargePointLogic
@@ -24,7 +26,6 @@ public enum Actions {
     // ModBus
     ChangeConnectorAvailability,
     ChangeStationAvailability,
-    GetConfiguration,
-    GetConnectorsInfo,
-    GetNonStoppedTransactions
+    DataTransfer,
+    GetConnectorsInfo
 }

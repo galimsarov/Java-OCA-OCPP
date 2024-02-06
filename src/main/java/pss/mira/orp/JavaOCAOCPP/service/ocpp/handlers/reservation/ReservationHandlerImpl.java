@@ -1,4 +1,4 @@
-package pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.reservation;
+package pss.mira.orp.JavaOCAOCPP.service.ocpp.handlers.reservation;
 
 import eu.chargetime.ocpp.feature.profile.ClientReservationEventHandler;
 import eu.chargetime.ocpp.feature.profile.ClientReservationProfile;

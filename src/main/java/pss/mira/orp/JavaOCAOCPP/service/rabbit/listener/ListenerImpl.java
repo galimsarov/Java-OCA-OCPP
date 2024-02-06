@@ -15,8 +15,8 @@ import pss.mira.orp.JavaOCAOCPP.service.cache.reservation.ReservationCache;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.authorize.Authorize;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.dataTransfer.DataTransfer;
-import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.core.CoreHandler;
-import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.reservation.ReservationHandler;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.handlers.core.CoreHandler;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.handlers.reservation.ReservationHandler;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.meterValues.MeterValues;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.startTransaction.StartTransaction;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.statusNotification.StatusNotification;
@@ -109,6 +109,7 @@ public class ListenerImpl implements Listener {
                             case "ChangeConnectorAvailability" ->
                                     coreHandler.setConnectorAvailabilityStatus(parsedMessage);
                             case "ChangeStationAvailability" -> coreHandler.setStationAvailabilityStatus(parsedMessage);
+                            case "DataTransfer" -> coreHandler.setDataTransferStatus(parsedMessage);
                             case "GetConfiguration" -> configurationCache.createCache(parsedMessage);
                             case "GetConnectorsInfo" -> {
                                 List<StatusNotificationInfo> possibleRequests =

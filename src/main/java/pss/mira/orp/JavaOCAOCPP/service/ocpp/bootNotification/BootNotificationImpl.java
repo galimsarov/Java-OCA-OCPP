@@ -13,9 +13,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import pss.mira.orp.JavaOCAOCPP.models.info.ocpp.BootNotificationInfo;
-import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.core.CoreHandler;
-import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.remoteTrigger.RemoteTriggerHandler;
-import pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.reservation.ReservationHandler;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.handlers.core.CoreHandler;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.handlers.remoteTrigger.RemoteTriggerHandler;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.handlers.reservation.ReservationHandler;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.heartBeat.Heartbeat;
 import pss.mira.orp.JavaOCAOCPP.service.pc.TimeSetter;
 

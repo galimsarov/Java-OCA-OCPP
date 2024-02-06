@@ -1,4 +1,4 @@
-package pss.mira.orp.JavaOCAOCPP.service.ocpp.handler.core;
+package pss.mira.orp.JavaOCAOCPP.service.ocpp.handlers.core;
 
 import eu.chargetime.ocpp.feature.profile.ClientCoreProfile;
 
@@ -22,4 +22,6 @@ public interface CoreHandler {
     void setUnlockConnectorStatus(List<Object> parsedMessage);
 
     void setStationAvailabilityStatus(List<Object> parsedMessage);
+
+    void setDataTransferStatus(List<Object> parsedMessage);
 }
