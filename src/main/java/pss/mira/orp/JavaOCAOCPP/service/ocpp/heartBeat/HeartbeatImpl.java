@@ -6,9 +6,12 @@ import eu.chargetime.ocpp.UnsupportedFeatureException;
 import eu.chargetime.ocpp.feature.profile.ClientCoreProfile;
 import eu.chargetime.ocpp.model.Confirmation;
 import eu.chargetime.ocpp.model.Request;
+import eu.chargetime.ocpp.model.core.BootNotificationConfirmation;
 import eu.chargetime.ocpp.model.core.HeartbeatConfirmation;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.client.Client;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.handlers.core.CoreHandler;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handlers.remoteTrigger.RemoteTriggerHandler;
 import pss.mira.orp.JavaOCAOCPP.service.pc.TimeSetter;
 
@@ -17,10 +20,16 @@ import java.util.Set;
 @Service
 @Slf4j
 public class HeartbeatImpl implements Heartbeat {
+    private final Client client;
+    private final CoreHandler coreHandler;
     private final RemoteTriggerHandler remoteTriggerHandler;
     private final TimeSetter timeSetter;
 
-    public HeartbeatImpl(RemoteTriggerHandler remoteTriggerHandler, TimeSetter timeSetter) {
+    public HeartbeatImpl(
+            Client client, CoreHandler coreHandler, RemoteTriggerHandler remoteTriggerHandler, TimeSetter timeSetter
+    ) {
+        this.client = client;
+        this.coreHandler = coreHandler;
         this.remoteTriggerHandler = remoteTriggerHandler;
         this.timeSetter = timeSetter;
     }
@@ -53,5 +62,28 @@ public class HeartbeatImpl implements Heartbeat {
 
         Set<Thread> threads = Thread.getAllStackTraces().keySet();
         log.info("Запущено потоков " + threads.size());
+    }
+
+    @Override
+    public void sendTriggerMessageHeartbeat() {
+        sendHeartbeat(coreHandler.getCore(), client.getClient());
+        remoteTriggerHandler.setRemoteTriggerTaskFinished();
+    }
+
+    @Override
+    public Thread getHeartbeatThread(BootNotificationConfirmation bootNotificationConfirmation, String source) {
+        Runnable runHeartbeat = () -> {
+            while (true) {
+                try {
+                    Thread.sleep(bootNotificationConfirmation.getInterval() * 1000);
+                } catch (InterruptedException e) {
+                    log.error("Heartbeat thread has been interrupted");
+                    break;
+                }
+                log.info("!!!Поток из " + source);
+                sendHeartbeat(coreHandler.getCore(), client.getClient());
+            }
+        };
+        return new Thread(runHeartbeat);
     }
 }

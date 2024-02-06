@@ -17,6 +17,7 @@ import pss.mira.orp.JavaOCAOCPP.service.ocpp.bootNotification.BootNotification;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.dataTransfer.DataTransfer;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handlers.core.CoreHandler;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handlers.reservation.ReservationHandler;
+import pss.mira.orp.JavaOCAOCPP.service.ocpp.heartBeat.Heartbeat;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.meterValues.MeterValues;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.startTransaction.StartTransaction;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.statusNotification.StatusNotification;
@@ -40,8 +41,9 @@ public class ListenerImpl implements Listener {
     private final ChargeSessionMap chargeSessionMap;
     private final ConfigurationCache configurationCache;
     private final ConnectorsInfoCache connectorsInfoCache;
-    private final DataTransfer dataTransfer;
     private final CoreHandler coreHandler;
+    private final DataTransfer dataTransfer;
+    private final Heartbeat heartbeat;
     private final MeterValues meterValues;
     private final NonStoppedTransactionCache nonStoppedTransactionCache;
     private final RequestCache requestCache;
@@ -58,8 +60,9 @@ public class ListenerImpl implements Listener {
             ChargeSessionMap chargeSessionMap,
             ConfigurationCache configurationCache,
             ConnectorsInfoCache connectorsInfoCache,
-            DataTransfer dataTransfer,
             CoreHandler coreHandler,
+            DataTransfer dataTransfer,
+            Heartbeat heartbeat,
             MeterValues meterValues,
             NonStoppedTransactionCache nonStoppedTransactionCache,
             ReservationCache reservationCache,
@@ -74,8 +77,9 @@ public class ListenerImpl implements Listener {
         this.chargeSessionMap = chargeSessionMap;
         this.configurationCache = configurationCache;
         this.connectorsInfoCache = connectorsInfoCache;
-        this.dataTransfer = dataTransfer;
         this.coreHandler = coreHandler;
+        this.dataTransfer = dataTransfer;
+        this.heartbeat = heartbeat;
         this.meterValues = meterValues;
         this.nonStoppedTransactionCache = nonStoppedTransactionCache;
         this.reservationCache = reservationCache;
@@ -103,8 +107,10 @@ public class ListenerImpl implements Listener {
                             // core
                             case "auth_list" -> authorize.setAuthMap(parsedMessage);
                             case "Authorize" -> coreHandler.setAuthorizeConfirmation(parsedMessage);
-                            case "BootNotification" ->
-                                    bootNotification.sendBootNotification(parsedMessage, "bootNotification");
+                            case "BootNotification" -> {
+
+                                bootNotification.sendBootNotification(parsedMessage, "bootNotification");
+                            }
                             case "changeConfiguration" -> coreHandler.setChangeConfigurationStatus(parsedMessage);
                             case "ChangeConnectorAvailability" ->
                                     coreHandler.setConnectorAvailabilityStatus(parsedMessage);
@@ -149,7 +155,7 @@ public class ListenerImpl implements Listener {
                         }
                         case "StartTransaction" -> startTransaction.sendStartTransaction(parsedMessage);
                         // remote trigger
-                        case "SendHeartbeatToCentralSystem" -> bootNotification.sendTriggerMessageHeartbeat();
+                        case "SendHeartbeatToCentralSystem" -> heartbeat.sendTriggerMessageHeartbeat();
                         case "SendMeterValuesToCentralSystem" ->
                                 meterValues.sendTriggerMessageMeterValues(parsedMessage);
                         case "SendStatusNotificationToCentralSystem" ->
@@ -168,7 +174,7 @@ public class ListenerImpl implements Listener {
     @Override
     // prod, test -> connectorsInfoOcpp
     // dev -> myQueue1
-    @RabbitListener(queues = "connectorsInfoOcpp")
+    @RabbitListener(queues = "myQueue1")
     public void processConnectorsInfo(String message) {
         log.info("Received from connectorsInfoOcpp queue: " + message);
         if (!connectorsInfoCache.isEmpty()) {
