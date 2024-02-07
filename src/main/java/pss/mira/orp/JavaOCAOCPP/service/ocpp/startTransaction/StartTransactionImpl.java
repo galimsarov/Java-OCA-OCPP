@@ -156,7 +156,7 @@ public class StartTransactionImpl implements StartTransaction {
                                             String.valueOf(connectorsInfoCache.getFullStationConsumedEnergy(connectorId))),
                                     Map.of("key", "evccid", "value", connectorsInfoCache.getEVCCID(connectorId))
                             )),
-                    transaction1.name()
+                    CreateTransaction.name()
             );
             meterValues.addToChargingConnectors(connectorId, startTransactionConfirmation.getTransactionId());
             chargeSessionMap.setStartFullStationConsumedEnergy(

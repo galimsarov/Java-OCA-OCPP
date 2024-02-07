@@ -199,8 +199,8 @@ public class StopTransactionImpl implements StopTransaction {
                         log.warn("An error occurred while sending or processing stop transaction request");
                     }
                 }
-                chargeSessionMap.removeFromChargeSessionMap(connectorId);
                 meterValues.removeFromChargingConnectors(connectorId);
+                chargeSessionMap.removeFromChargeSessionMap(connectorId);
             }
         }
     }
@@ -360,7 +360,7 @@ public class StopTransactionImpl implements StopTransaction {
                                         String.valueOf(connectorsInfoCache.getPercent(connectorId))),
                                 Map.of("key", "stop_vendor_error", "value", "NoErrorVendor")
                         )),
-                transaction1.name()
+                UpdateTransaction.name()
         );
         if (!consumer.isBlank()) {
             sender.sendRequestToQueue(

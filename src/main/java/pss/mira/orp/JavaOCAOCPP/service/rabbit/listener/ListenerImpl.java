@@ -119,7 +119,8 @@ public class ListenerImpl implements Listener {
                             case "ChangeConnectorAvailability" ->
                                     coreHandler.setConnectorAvailabilityStatus(parsedMessage);
                             case "ChangeStationAvailability" -> coreHandler.setStationAvailabilityStatus(parsedMessage);
-                            case "DataTransfer" -> coreHandler.setDataTransferStatus(parsedMessage);
+                            case "CreateTransaction" ->
+                                    stopTransaction.checkTransactionCreation(parsedMessage, cashedRequest);
                             case "GetConfiguration" -> configurationCache.createCache(parsedMessage);
                             case "GetConnectorsInfo" -> {
                                 List<StatusNotificationInfo> possibleRequests =
@@ -133,8 +134,7 @@ public class ListenerImpl implements Listener {
                             case "RemoteStopTransaction" -> coreHandler.setRemoteStartStopStatus(parsedMessage, "stop");
                             case "reservation" -> reservationCache.createCache(parsedMessage);
                             case "Reset" -> coreHandler.setResetStatus(parsedMessage);
-                            case "transaction1" ->
-                                    stopTransaction.checkTransactionCreation(parsedMessage, cashedRequest);
+                            case "SetLimit" -> coreHandler.setLimitStatus(parsedMessage);
                             case "UnlockConnector" -> coreHandler.setUnlockConnectorStatus(parsedMessage);
                             // reservation
                             case "ReserveNow" -> reservationHandler.setReservationResult(parsedMessage);
@@ -176,7 +176,7 @@ public class ListenerImpl implements Listener {
     @Override
     // prod, test -> connectorsInfoOcpp
     // dev -> myQueue1
-    @RabbitListener(queues = "myQueue1")
+    @RabbitListener(queues = "connectorsInfoOcpp")
     public void processConnectorsInfo(String message) {
         log.info("Received from connectorsInfoOcpp queue: " + message);
         if (!connectorsInfoCache.isEmpty()) {

@@ -9,8 +9,6 @@ public interface CoreHandler {
 
     void setConnectorAvailabilityStatus(List<Object> parsedMessage);
 
-//    void setConfigurationList(List<Object> parsedMessage);
-
     void setChangeConfigurationStatus(List<Object> parsedMessage);
 
     void setAuthorizeConfirmation(List<Object> parsedMessage);
@@ -23,5 +21,5 @@ public interface CoreHandler {
 
     void setStationAvailabilityStatus(List<Object> parsedMessage);
 
-    void setDataTransferStatus(List<Object> parsedMessage);
+    void setLimitStatus(List<Object> parsedMessage);
 }

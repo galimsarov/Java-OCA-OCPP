@@ -45,7 +45,7 @@ public class CoreHandlerImpl implements CoreHandler {
     private RemoteStartStopStatus remoteStopStatus = null;
     private ResetStatus resetStatus = null;
     private UnlockStatus unlockConnectorStatus = null;
-    private DataTransferStatus dataTransferStatus = null;
+    private DataTransferStatus limitStatus = null;
     private final Set<String> sentUUIDs = new HashSet<>();
     private final Map<String, AvailabilityStatus> receivedUUIDs = new HashMap<>();
 
@@ -204,25 +204,33 @@ public class CoreHandlerImpl implements CoreHandler {
                     ) {
                         return new DataTransferConfirmation(UnknownMessageId);
                     } else {
-                        sender.sendRequestToQueue(
-                                queues.getModBus(),
-                                UUID.randomUUID().toString(),
-                                DataTransfer.name(),
-                                request,
-                                DataTransfer.name()
-                        );
+                        switch (request.getMessageId()) {
+                            case "setKwhLimit" -> {
+                                DataTransferConfirmation wrongKwhLimit = getWrongKwhLimit(request);
+                                if (wrongKwhLimit != null) {
+                                    log.info("Sent to central system: " + wrongKwhLimit);
+                                    return wrongKwhLimit;
+                                }
+                            }
+                            case "setPercentLimit" -> {
+                                DataTransferConfirmation wrongPercentLimit = getWrongPercentLimit(request);
+                                if (wrongPercentLimit != null) {
+                                    log.info("Sent to central system: " + wrongPercentLimit);
+                                    return wrongPercentLimit;
+                                }
+                            }
+                        }
                         while (true) {
-                            if (dataTransferStatus == null) {
+                            if (limitStatus == null) {
                                 try {
                                     Thread.sleep(1000);
                                 } catch (InterruptedException e) {
                                     log.error("Аn error while waiting for a data transfer response");
                                 }
                             } else {
-                                DataTransferConfirmation result =
-                                        new DataTransferConfirmation(dataTransferStatus);
+                                DataTransferConfirmation result = new DataTransferConfirmation(limitStatus);
                                 log.info("Send to the central system: " + result);
-                                dataTransferStatus = null;
+                                limitStatus = null;
                                 return result;
                             }
                         }
@@ -230,6 +238,67 @@ public class CoreHandlerImpl implements CoreHandler {
                 } else {
                     return new DataTransferConfirmation(UnknownVendorId);
                 }
+            }
+
+            private DataTransferConfirmation getWrongPercentLimit(DataTransferRequest request) {
+                List<String> list = new ArrayList<>();
+                for (String value : request.getData().split(",")) {
+                    value = value.substring(value.lastIndexOf(':') + 1);
+                    list.add(value.replaceAll("}", ""));
+                }
+                int transactionId = Integer.parseInt(list.get(0).trim());
+                Integer connectorId = chargeSessionMap.getConnectorId(transactionId);
+                if (connectorId == null) {
+                    return new DataTransferConfirmation(DataTransferStatus.Rejected);
+                }
+                String str = list.get(1).trim().replaceAll("\\s", "");
+                if (str.equals("null") || str.isEmpty()) {
+                    str = "0";
+                }
+                int limit = Integer.parseInt(str);
+                sender.sendRequestToQueue(
+                        queues.getChargePointLogic(),
+                        UUID.randomUUID().toString(),
+                        SetLimit.name(),
+                        Map.of(
+                                "connectorId", connectorId,
+                                "limit", limit,
+                                "type", "percent"
+                        ),
+                        SetLimit.name()
+                );
+                return null;
+            }
+
+            private DataTransferConfirmation getWrongKwhLimit(DataTransferRequest request) {
+                List<String> list = new ArrayList<>();
+                for (String value : request.getData().split(",")) {
+                    value = value.substring(value.lastIndexOf(':') + 1);
+                    list.add(value.replaceAll("}", ""));
+                }
+                int transactionId = Integer.parseInt(list.get(0).trim());
+                Integer connectorId = chargeSessionMap.getConnectorId(transactionId);
+                if (connectorId == null) {
+                    return new DataTransferConfirmation(DataTransferStatus.Rejected);
+                }
+                String str = list.get(1).trim().replaceAll("\\s", "");
+                if (str.equals("null") || str.isEmpty()) {
+                    str = "0";
+                }
+                double kwhLimit = Double.parseDouble(str) * 1000;
+                int limit = (int) kwhLimit;
+                sender.sendRequestToQueue(
+                        queues.getChargePointLogic(),
+                        UUID.randomUUID().toString(),
+                        SetLimit.name(),
+                        Map.of(
+                                "connectorId", connectorId,
+                                "limit", limit,
+                                "type", "energy"
+                        ),
+                        SetLimit.name()
+                );
+                return null;
             }
 
             /**
@@ -543,14 +612,14 @@ public class CoreHandlerImpl implements CoreHandler {
     }
 
     @Override
-    public void setDataTransferStatus(List<Object> parsedMessage) {
+    public void setLimitStatus(List<Object> parsedMessage) {
         Map<String, String> dataTransferStatusMap = (Map<String, String>) parsedMessage.get(2);
         for (DataTransferStatus status : DataTransferStatus.values()) {
             if (dataTransferStatusMap.get("status").equals(status.name())) {
-                dataTransferStatus = status;
+                limitStatus = status;
                 return;
             }
         }
-        dataTransferStatus = DataTransferStatus.Rejected;
+        limitStatus = DataTransferStatus.Rejected;
     }
 }

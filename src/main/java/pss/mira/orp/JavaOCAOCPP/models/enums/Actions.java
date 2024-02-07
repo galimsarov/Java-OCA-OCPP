@@ -5,16 +5,19 @@ public enum Actions {
     BootNotification,
     CancelReservation,
     Change,
+    CreateTransaction,
     Delete,
     Get,
     GetConfiguration,
     GetNonStoppedTransactions,
     RemoteTriggerBootNotification,
     ReserveNow,
+    UpdateTransaction,
     // mainChargePointLogic
     RemoteStartTransaction,
     RemoteStopTransaction,
     Reset,
+    SetLimit,
     StopChargeSession,
     UnlockConnector,
     // ocpp, то есть, сам себе
@@ -26,6 +29,5 @@ public enum Actions {
     // ModBus
     ChangeConnectorAvailability,
     ChangeStationAvailability,
-    DataTransfer,
     GetConnectorsInfo
 }
