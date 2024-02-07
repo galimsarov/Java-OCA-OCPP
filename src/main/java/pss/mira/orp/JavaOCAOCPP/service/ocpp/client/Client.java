@@ -11,4 +11,6 @@ public interface Client {
     BootNotificationInfo getBootNotificationInfo();
 
     JSONClient getClient();
+
+    boolean isConnected();
 }

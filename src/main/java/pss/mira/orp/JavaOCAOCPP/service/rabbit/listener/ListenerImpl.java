@@ -130,8 +130,6 @@ public class ListenerImpl implements Listener {
                             }
                             case "GetNonStoppedTransactions" ->
                                     stopTransaction.checkTransactionsAfterReboot(parsedMessage);
-                            case "RemoteStartTransaction" ->
-                                    coreHandler.setRemoteStartStopStatus(parsedMessage, "start");
                             case "RemoteStopTransaction" -> coreHandler.setRemoteStartStopStatus(parsedMessage, "stop");
                             case "reservation" -> reservationCache.createCache(parsedMessage);
                             case "Reset" -> coreHandler.setResetStatus(parsedMessage);

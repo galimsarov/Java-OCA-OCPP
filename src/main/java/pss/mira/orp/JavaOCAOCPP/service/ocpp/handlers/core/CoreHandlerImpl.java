@@ -4,7 +4,6 @@ import eu.chargetime.ocpp.feature.profile.ClientCoreEventHandler;
 import eu.chargetime.ocpp.feature.profile.ClientCoreProfile;
 import eu.chargetime.ocpp.model.core.*;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.SystemUtils;
 import org.springframework.stereotype.Service;
 import pss.mira.orp.JavaOCAOCPP.models.info.rabbit.DBTablesChangeInfo;
 import pss.mira.orp.JavaOCAOCPP.models.info.rabbit.DBTablesDeleteInfo;
@@ -13,13 +12,15 @@ import pss.mira.orp.JavaOCAOCPP.service.cache.chargeSessionMap.ChargeSessionMap;
 import pss.mira.orp.JavaOCAOCPP.service.cache.configuration.ConfigurationCache;
 import pss.mira.orp.JavaOCAOCPP.service.cache.connectorsInfoCache.ConnectorsInfoCache;
 import pss.mira.orp.JavaOCAOCPP.service.cache.reservation.ReservationCache;
+import pss.mira.orp.JavaOCAOCPP.service.pc.reStarter.ReStarter;
 import pss.mira.orp.JavaOCAOCPP.service.rabbit.sender.Sender;
 
-import java.io.IOException;
 import java.util.*;
 
 import static eu.chargetime.ocpp.model.core.AuthorizationStatus.Accepted;
 import static eu.chargetime.ocpp.model.core.AuthorizationStatus.Invalid;
+import static eu.chargetime.ocpp.model.core.ChargePointStatus.Available;
+import static eu.chargetime.ocpp.model.core.ChargePointStatus.Preparing;
 import static eu.chargetime.ocpp.model.core.ConfigurationStatus.NotSupported;
 import static eu.chargetime.ocpp.model.core.DataTransferStatus.UnknownMessageId;
 import static eu.chargetime.ocpp.model.core.DataTransferStatus.UnknownVendorId;
@@ -36,11 +37,11 @@ public class CoreHandlerImpl implements CoreHandler {
     private final ChargeSessionMap chargeSessionMap;
     private final Queues queues;
     private final ReservationCache reservationCache;
+    private final ReStarter reStarter;
     private final Sender sender;
     private AvailabilityStatus connectorAvailabilityStatus = null;
     private ConfigurationStatus changeConfigurationStatus = null;
     private AuthorizeConfirmation authorizeConfirmation = null;
-    private RemoteStartStopStatus remoteStartStatus = null;
     private RemoteStartStopStatus remoteStopStatus = null;
     private ResetStatus resetStatus = null;
     private UnlockStatus unlockConnectorStatus = null;
@@ -54,6 +55,7 @@ public class CoreHandlerImpl implements CoreHandler {
             ChargeSessionMap chargeSessionMap,
             Queues queues,
             ReservationCache reservationCache,
+            ReStarter reStarter,
             Sender sender
     ) {
         this.configurationCache = configurationCache;
@@ -61,6 +63,7 @@ public class CoreHandlerImpl implements CoreHandler {
         this.chargeSessionMap = chargeSessionMap;
         this.queues = queues;
         this.reservationCache = reservationCache;
+        this.reStarter = reStarter;
         this.sender = sender;
     }
 
@@ -252,9 +255,11 @@ public class CoreHandlerImpl implements CoreHandler {
                 }
                 authorizeConfirmation = null;
                 interactWithChargePointLogic(request);
-                RemoteStartTransactionConfirmation result =
-                        new RemoteStartTransactionConfirmation(remoteStartStatus);
-                if (remoteStartStatus.equals(RemoteStartStopStatus.Accepted)) {
+                RemoteStartStopStatus remoteStartStatus;
+                if (connectorsInfoCache.getStatus(request.getConnectorId()).equals(Available.name()) ||
+                        connectorsInfoCache.getStatus(request.getConnectorId()).equals(Preparing.name())
+                ) {
+                    remoteStartStatus = RemoteStartStopStatus.Accepted;
                     chargeSessionMap.addToChargeSessionMap(
                             request.getConnectorId(),
                             request.getIdTag(),
@@ -262,8 +267,10 @@ public class CoreHandlerImpl implements CoreHandler {
                             connectorsInfoCache.getStatusNotificationRequest(request.getConnectorId()).getStatus(),
                             new int[]{configurationCache.getConnectionTimeOut()}
                     );
+                } else {
+                    remoteStartStatus = RemoteStartStopStatus.Rejected;
                 }
-                remoteStartStatus = null;
+                RemoteStartTransactionConfirmation result = new RemoteStartTransactionConfirmation(remoteStartStatus);
                 log.info("Sent to central system: " + result);
                 return result;
             }
@@ -300,17 +307,6 @@ public class CoreHandlerImpl implements CoreHandler {
                         map,
                         RemoteStartTransaction.name()
                 );
-                while (true) {
-                    if (remoteStartStatus == null) {
-                        try {
-                            Thread.sleep(1000);
-                        } catch (InterruptedException e) {
-                            log.error("Аn error while waiting for remote start transaction response");
-                        }
-                    } else {
-                        break;
-                    }
-                }
             }
 
             private RemoteStartTransactionConfirmation getNotAuthorizedReject(RemoteStartTransactionRequest request) {
@@ -399,45 +395,11 @@ public class CoreHandlerImpl implements CoreHandler {
                 ResetConfirmation result = new ResetConfirmation(resetStatus);
                 if (request.getType().equals(Soft) && resetStatus.equals(ResetStatus.Accepted)) {
                     log.warn("The application will restart at the end of all charging sessions");
-                    restartService();
+                    reStarter.restart();
                 }
                 resetStatus = null;
                 log.info("Sent to central system: " + result);
                 return result;
-            }
-
-            private void restartService() {
-                Runnable restartTask = () -> {
-                    while (true) {
-                        if (chargeSessionMap.isNotEmpty()) {
-                            try {
-                                Thread.sleep(1000);
-                            } catch (InterruptedException e) {
-                                log.error("Аn error while waiting for a restart");
-                            }
-                        } else {
-                            break;
-                        }
-                    }
-                    if (SystemUtils.IS_OS_WINDOWS) {
-                        log.error("Application restart doesn't support in windows");
-                        return;
-                    }
-                    int restartTries = 10;
-                    for (int i = 0; i < restartTries; i++) {
-                        log.info("Try to restart #{}", i);
-                        try {
-                            log.info("Restarting...");
-                            Runtime.getRuntime().exec("sudo systemctl restart ocpp-service.service");
-                            return; // По идее уже вырубится приложение, но на всякий return
-                        } catch (IOException e) {
-                            log.error("Аn error while trying to restart");
-                        }
-                    }
-                    log.warn("System wasn't restarted in {} tries!", restartTries);
-                };
-                Thread restartThread = new Thread(restartTask);
-                restartThread.start();
             }
 
             @Override
@@ -524,24 +486,18 @@ public class CoreHandlerImpl implements CoreHandler {
     @Override
     public void setRemoteStartStopStatus(List<Object> parsedMessage, String type) {
         try {
-            Map<String, String> remoteStartTransactionMap = (Map<String, String>) parsedMessage.get(2);
-            if (remoteStartTransactionMap.get("status").equals(Accepted.toString())) {
-                if (type.equals("start")) {
-                    remoteStartStatus = RemoteStartStopStatus.Accepted;
-                } else {
+            Map<String, String> map = (Map<String, String>) parsedMessage.get(2);
+            if (map.get("status").equals(Accepted.toString())) {
+                if (type.equals("stop")) {
                     remoteStopStatus = RemoteStartStopStatus.Accepted;
                 }
             } else {
-                if (type.equals("start")) {
-                    remoteStartStatus = RemoteStartStopStatus.Rejected;
-                } else {
+                if (type.equals("stop")) {
                     remoteStopStatus = RemoteStartStopStatus.Rejected;
                 }
             }
         } catch (Exception ignored) {
-            if (type.equals("start")) {
-                remoteStartStatus = RemoteStartStopStatus.Rejected;
-            } else {
+            if (type.equals("stop")) {
                 remoteStopStatus = RemoteStartStopStatus.Rejected;
             }
         }

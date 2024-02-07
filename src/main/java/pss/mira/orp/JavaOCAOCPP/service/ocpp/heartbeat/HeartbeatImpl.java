@@ -13,7 +13,7 @@ import org.springframework.stereotype.Service;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.client.Client;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handlers.core.CoreHandler;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handlers.remoteTrigger.RemoteTriggerHandler;
-import pss.mira.orp.JavaOCAOCPP.service.pc.TimeSetter;
+import pss.mira.orp.JavaOCAOCPP.service.pc.timeSetter.TimeSetter;
 
 import java.util.Set;
 

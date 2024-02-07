@@ -1,4 +1,4 @@
-package pss.mira.orp.JavaOCAOCPP.service.pc;
+package pss.mira.orp.JavaOCAOCPP.service.pc.timeSetter;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

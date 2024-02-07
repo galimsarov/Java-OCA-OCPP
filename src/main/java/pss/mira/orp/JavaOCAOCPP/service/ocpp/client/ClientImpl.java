@@ -20,6 +20,7 @@ public class ClientImpl implements Client {
     private final ReservationHandler reservationHandler;
     private BootNotificationInfo bootNotificationInfo;
     private JSONClient jsonClient;
+    private boolean isConnected;
 
     public ClientImpl(
             CoreHandler coreHandler, RemoteTriggerHandler remoteTriggerHandler, ReservationHandler reservationHandler
@@ -51,22 +52,39 @@ public class ClientImpl implements Client {
             jsonClient.addFeatureProfile(reservationHandler.getReservation());
             jsonClient.addFeatureProfile(remoteTriggerHandler.getRemoteTrigger());
 
-            jsonClient.connect(bootNotificationInfo.getAddressCP(), new ClientEvents() {
-                @Override
-                public void connectionOpened() {
-                    log.info("Connection to the central system is established");
-                }
-
-                @Override
-                public void connectionClosed() {
-                    log.warn("The connection to the central system has not been established. " +
-                            "Another try will be made");
-                }
-            });
+            connect();
         } else {
             log.error("OCPP did not receive one of the parameters (adresCS, ChargePointID, ChargePointVendor, " +
                     "ChargePointModel) and cannot establish a connection the central system");
         }
+    }
+
+    private void connect() {
+        jsonClient.connect(bootNotificationInfo.getAddressCP(), new ClientEvents() {
+            @Override
+            public void connectionOpened() {
+                isConnected = true;
+                log.info("Connection to the central system is established");
+            }
+
+            @Override
+            public void connectionClosed() {
+                // TODO Need for test
+                Runnable connectionTask = () -> {
+                    isConnected = false;
+                    log.warn("The connection to the central system has not been established. " +
+                            "Another try will be made");
+                    try {
+                        Thread.sleep(20_000);
+                    } catch (InterruptedException e) {
+                        log.error("Аn error while waiting for connection");
+                    }
+                    connect();
+                };
+                Thread connectionThread = new Thread(connectionTask);
+                connectionThread.start();
+            }
+        });
     }
 
     @Override
@@ -77,5 +95,10 @@ public class ClientImpl implements Client {
     @Override
     public JSONClient getClient() {
         return jsonClient;
+    }
+
+    @Override
+    public boolean isConnected() {
+        return isConnected;
     }
 }

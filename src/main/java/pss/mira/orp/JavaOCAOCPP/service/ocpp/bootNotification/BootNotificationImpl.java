@@ -14,7 +14,7 @@ import pss.mira.orp.JavaOCAOCPP.service.ocpp.client.Client;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handlers.core.CoreHandler;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.handlers.remoteTrigger.RemoteTriggerHandler;
 import pss.mira.orp.JavaOCAOCPP.service.ocpp.heartbeat.Heartbeat;
-import pss.mira.orp.JavaOCAOCPP.service.pc.TimeSetter;
+import pss.mira.orp.JavaOCAOCPP.service.pc.timeSetter.TimeSetter;
 
 import static eu.chargetime.ocpp.model.core.RegistrationStatus.Accepted;
 
@@ -48,13 +48,7 @@ public class BootNotificationImpl implements BootNotification {
     public void sendBootNotification(String source) {
         Runnable clientTask = () -> {
             while (true) {
-                if (client.getClient() == null) {
-                    try {
-                        Thread.sleep(1000);
-                    } catch (InterruptedException e) {
-                        log.error("Аn error while waiting for connection");
-                    }
-                } else {
+                if (client.isConnected()) {
                     break;
                 }
             }
