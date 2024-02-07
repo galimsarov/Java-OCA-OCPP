@@ -79,20 +79,22 @@ public class StopTransactionImpl implements StopTransaction {
                     Map<String, Object> stopTransactionMap = (Map<String, Object>) parsedMessage.get(3);
                     int connectorId = Integer.parseInt(stopTransactionMap.get("connectorId").toString());
                     String reason = stopTransactionMap.get("reason").toString();
-                    int transactionId = chargeSessionMap.getChargeSessionInfo(connectorId).getTransactionId();
-                    int startFullStationConsumedEnergy =
-                            chargeSessionMap.getStartFullStationConsumedEnergy(connectorId);
-                    chargeSessionMap.setLocalStop(connectorId);
-                    while (true) {
-                        if (connectorsInfoCache.isCharging(connectorId)) {
-                            Thread.sleep(1000);
-                        } else {
-                            break;
+                    if (chargeSessionMap.getChargeSessionInfo(connectorId) != null) {
+                        int transactionId = chargeSessionMap.getChargeSessionInfo(connectorId).getTransactionId();
+                        int startFullStationConsumedEnergy =
+                                chargeSessionMap.getStartFullStationConsumedEnergy(connectorId);
+                        chargeSessionMap.setLocalStop(connectorId);
+                        while (true) {
+                            if (connectorsInfoCache.isCharging(connectorId)) {
+                                Thread.sleep(1000);
+                            } else {
+                                break;
+                            }
                         }
+                        sendRequestToCentralSystem(
+                                transactionId, startFullStationConsumedEnergy, connectorId, reason, consumer, requestUuid
+                        );
                     }
-                    sendRequestToCentralSystem(
-                            transactionId, startFullStationConsumedEnergy, connectorId, reason, consumer, requestUuid
-                    );
                 } catch (Exception ignored) {
                     log.error("An error occurred while receiving stop transaction data from the message");
                 }

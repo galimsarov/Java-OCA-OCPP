@@ -23,7 +23,6 @@ import static eu.chargetime.ocpp.model.core.ChargePointStatus.Available;
 import static eu.chargetime.ocpp.model.core.ChargePointStatus.Preparing;
 import static eu.chargetime.ocpp.model.core.ConfigurationStatus.NotSupported;
 import static eu.chargetime.ocpp.model.core.DataTransferStatus.UnknownMessageId;
-import static eu.chargetime.ocpp.model.core.DataTransferStatus.UnknownVendorId;
 import static eu.chargetime.ocpp.model.core.RemoteStartStopStatus.Rejected;
 import static eu.chargetime.ocpp.model.core.ResetType.Soft;
 import static pss.mira.orp.JavaOCAOCPP.models.enums.Actions.*;
@@ -198,45 +197,41 @@ public class CoreHandlerImpl implements CoreHandler {
             @Override
             public DataTransferConfirmation handleDataTransferRequest(DataTransferRequest request) {
                 log.info("Received from the central system: " + request.toString());
-                if (request.getVendorId().equals("pss")) {
-                    if (!request.getMessageId().equals("setKwhLimit") &&
-                            !request.getMessageId().equals("setPercentLimit")
-                    ) {
-                        return new DataTransferConfirmation(UnknownMessageId);
-                    } else {
-                        switch (request.getMessageId()) {
-                            case "setKwhLimit" -> {
-                                DataTransferConfirmation wrongKwhLimit = getWrongKwhLimit(request);
-                                if (wrongKwhLimit != null) {
-                                    log.info("Sent to central system: " + wrongKwhLimit);
-                                    return wrongKwhLimit;
-                                }
-                            }
-                            case "setPercentLimit" -> {
-                                DataTransferConfirmation wrongPercentLimit = getWrongPercentLimit(request);
-                                if (wrongPercentLimit != null) {
-                                    log.info("Sent to central system: " + wrongPercentLimit);
-                                    return wrongPercentLimit;
-                                }
+                if (!request.getMessageId().equals("setKwhLimit") &&
+                        !request.getMessageId().equals("setPercentLimit")
+                ) {
+                    return new DataTransferConfirmation(UnknownMessageId);
+                } else {
+                    switch (request.getMessageId()) {
+                        case "setKwhLimit" -> {
+                            DataTransferConfirmation wrongKwhLimit = getWrongKwhLimit(request);
+                            if (wrongKwhLimit != null) {
+                                log.info("Sent to central system: " + wrongKwhLimit);
+                                return wrongKwhLimit;
                             }
                         }
-                        while (true) {
-                            if (limitStatus == null) {
-                                try {
-                                    Thread.sleep(1000);
-                                } catch (InterruptedException e) {
-                                    log.error("Аn error while waiting for a data transfer response");
-                                }
-                            } else {
-                                DataTransferConfirmation result = new DataTransferConfirmation(limitStatus);
-                                log.info("Send to the central system: " + result);
-                                limitStatus = null;
-                                return result;
+                        case "setPercentLimit" -> {
+                            DataTransferConfirmation wrongPercentLimit = getWrongPercentLimit(request);
+                            if (wrongPercentLimit != null) {
+                                log.info("Sent to central system: " + wrongPercentLimit);
+                                return wrongPercentLimit;
                             }
                         }
                     }
-                } else {
-                    return new DataTransferConfirmation(UnknownVendorId);
+                    while (true) {
+                        if (limitStatus == null) {
+                            try {
+                                Thread.sleep(1000);
+                            } catch (InterruptedException e) {
+                                log.error("Аn error while waiting for a data transfer response");
+                            }
+                        } else {
+                            DataTransferConfirmation result = new DataTransferConfirmation(limitStatus);
+                            log.info("Send to the central system: " + result);
+                            limitStatus = null;
+                            return result;
+                        }
+                    }
                 }
             }
 
